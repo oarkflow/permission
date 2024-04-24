@@ -4,18 +4,18 @@ import (
 	"github.com/oarkflow/maps"
 )
 
-func Can(userID, company, module, entity, group, activity string) bool {
+func Can(userID, tenant, module, entity, group, activity string) bool {
 	var allowed []string
-	if company == "" {
+	if tenant == "" {
 		return false
 	}
-	companyUser := GetUserRoles(company, userID)
-	if companyUser == nil {
+	tenantUser := GetUserRoles(tenant, userID)
+	if tenantUser == nil {
 		return false
 	}
 	var userRoles []*Role
-	roles := GetAllowedRoles(companyUser, module, entity)
-	companyUser.Company.Roles.ForEach(func(_ string, r *Role) bool {
+	roles := GetAllowedRoles(tenantUser, module, entity)
+	tenantUser.Tenant.Roles.ForEach(func(_ string, r *Role) bool {
 		for _, rt := range roles {
 			if r.ID == rt {
 				userRoles = append(userRoles, r)
@@ -40,32 +40,32 @@ func GetRole(role string) (*Role, bool) {
 func Roles() map[string]*Role {
 	return roleManager.roles.AsMap()
 }
-func AddUserRole(userID string, roleID string, company *Company, module *Module, entity *Entity) {
-	roleManager.AddUserRole(userID, roleID, company, module, entity)
+func AddUserRole(userID string, roleID string, tenant *Tenant, module *Module, entity *Entity) {
+	roleManager.AddUserRole(userID, roleID, tenant, module, entity)
 }
-func GetCompanyUserRoles(company string) *CompanyUser {
-	return roleManager.GetCompanyUserRoles(company)
+func GetTenantUserRoles(tenant string) *TenantUser {
+	return roleManager.GetTenantUserRoles(tenant)
 }
-func GetUserRoles(company, userID string) *CompanyUser {
-	return roleManager.GetUserRoles(company, userID)
+func GetUserRoles(tenant, userID string) *TenantUser {
+	return roleManager.GetUserRoles(tenant, userID)
 }
-func GetUserRolesByCompany(company string) []*UserRole {
-	return roleManager.GetUserRolesByCompany(company)
+func GetUserRolesByTenant(tenant string) []*UserRole {
+	return roleManager.GetUserRolesByTenant(tenant)
 }
-func GetUserRoleByCompanyAndUser(company, userID string) (ut []*UserRole) {
-	return roleManager.GetUserRoleByCompanyAndUser(company, userID)
+func GetUserRoleByTenantAndUser(tenant, userID string) (ut []*UserRole) {
+	return roleManager.GetUserRoleByTenantAndUser(tenant, userID)
 }
-func GetAllowedRoles(userRoles *CompanyUser, module, entity string) []string {
+func GetAllowedRoles(userRoles *TenantUser, module, entity string) []string {
 	return roleManager.GetAllowedRoles(userRoles, module, entity)
 }
-func AddCompany(data *Company) {
-	roleManager.AddCompany(data)
+func AddTenant(data *Tenant) {
+	roleManager.AddTenant(data)
 }
-func GetCompany(id string) (*Company, bool) {
-	return roleManager.GetCompany(id)
+func GetTenant(id string) (*Tenant, bool) {
+	return roleManager.GetTenant(id)
 }
-func Companies() map[string]*Company {
-	return roleManager.Companies()
+func Tenants() map[string]*Tenant {
+	return roleManager.Tenants()
 }
 func AddModule(data *Module) {
 	roleManager.AddModule(data)
@@ -94,16 +94,16 @@ func GetEntity(id string) (*Entity, bool) {
 func Entities() map[string]*Entity {
 	return roleManager.Entities()
 }
-func NewCompany(id string) *Company {
-	company := &Company{
+func NewTenant(id string) *Tenant {
+	tenant := &Tenant{
 		ID:          id,
 		Modules:     maps.New[string, *Module](),
 		Roles:       maps.New[string, *Role](),
 		Entities:    maps.New[string, *Entity](),
-		descendants: maps.New[string, *Company](),
+		descendants: maps.New[string, *Tenant](),
 	}
-	AddCompany(company)
-	return company
+	AddTenant(tenant)
+	return tenant
 }
 func NewModule(id string) *Module {
 	module := &Module{

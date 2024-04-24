@@ -4,52 +4,52 @@ import (
 	"github.com/oarkflow/maps"
 )
 
-type Company struct {
+type Tenant struct {
 	ID            string
 	defaultModule *Module
 	Modules       maps.IMap[string, *Module]
 	Roles         maps.IMap[string, *Role]
 	Entities      maps.IMap[string, *Entity]
-	descendants   maps.IMap[string, *Company]
+	descendants   maps.IMap[string, *Tenant]
 }
 
-func (c *Company) GetDescendantCompanies() []*Company {
-	var descendants []*Company
-	c.descendants.ForEach(func(_ string, child *Company) bool {
+func (c *Tenant) GetDescendantTenants() []*Tenant {
+	var descendants []*Tenant
+	c.descendants.ForEach(func(_ string, child *Tenant) bool {
 		descendants = append(descendants, child)
-		descendants = append(descendants, child.GetDescendantCompanies()...)
+		descendants = append(descendants, child.GetDescendantTenants()...)
 		return true
 	})
 	return descendants
 }
 
 // AddDescendent adds a new permission to the role
-func (c *Company) AddDescendent(descendants ...*Company) error {
+func (c *Tenant) AddDescendent(descendants ...*Tenant) error {
 	for _, descendant := range descendants {
 		c.descendants.Set(descendant.ID, descendant)
 	}
 	return nil
 }
 
-func (c *Company) SetDefaultModule(module string) {
+func (c *Tenant) SetDefaultModule(module string) {
 	if mod, ok := c.Modules.Get(module); ok {
 		c.defaultModule = mod
 	}
 }
 
-func (c *Company) AddModule(modules ...*Module) {
+func (c *Tenant) AddModule(modules ...*Module) {
 	for _, module := range modules {
 		c.Modules.Set(module.ID, module)
 	}
 }
 
-func (c *Company) AddRole(roles ...*Role) {
+func (c *Tenant) AddRole(roles ...*Role) {
 	for _, role := range roles {
 		c.Roles.Set(role.ID, role)
 	}
 }
 
-func (c *Company) AddEntities(entities ...*Entity) {
+func (c *Tenant) AddEntities(entities ...*Entity) {
 	for _, entity := range entities {
 		c.Entities.Set(entity.ID, entity)
 		if c.defaultModule != nil {
@@ -58,7 +58,7 @@ func (c *Company) AddEntities(entities ...*Entity) {
 	}
 }
 
-func (c *Company) AddEntitiesToModule(module string, entities ...string) {
+func (c *Tenant) AddEntitiesToModule(module string, entities ...string) {
 	for _, id := range entities {
 		entity, exists := c.Entities.Get(id)
 		if !exists {
@@ -72,7 +72,7 @@ func (c *Company) AddEntitiesToModule(module string, entities ...string) {
 	}
 }
 
-func (c *Company) AddRolesToModule(module string, roles ...string) {
+func (c *Tenant) AddRolesToModule(module string, roles ...string) {
 	for _, id := range roles {
 		role, exists := c.Roles.Get(id)
 		if !exists {
@@ -86,7 +86,7 @@ func (c *Company) AddRolesToModule(module string, roles ...string) {
 	}
 }
 
-func (c *Company) AddUser(user, role string) {
+func (c *Tenant) AddUser(user, role string) {
 	if _, ok := c.Roles.Get(role); ok {
 		AddUserRole(user, role, c, nil, nil)
 		if c.defaultModule != nil {
@@ -95,7 +95,7 @@ func (c *Company) AddUser(user, role string) {
 	}
 }
 
-func (c *Company) AddUserInModule(user, module string, roles ...string) {
+func (c *Tenant) AddUserInModule(user, module string, roles ...string) {
 	mod, exists := c.Modules.Get(module)
 	if !exists {
 		return
@@ -107,7 +107,7 @@ func (c *Company) AddUserInModule(user, module string, roles ...string) {
 			}
 		}
 	} else {
-		for _, ur := range GetUserRolesByCompany(c.ID) {
+		for _, ur := range GetUserRolesByTenant(c.ID) {
 			if ur.UserID == user && ur.Module != nil && ur.Module.ID != module {
 				AddUserRole(user, ur.RoleID, c, mod, nil)
 			}
@@ -115,7 +115,7 @@ func (c *Company) AddUserInModule(user, module string, roles ...string) {
 	}
 }
 
-func (c *Company) AssignEntitiesToUser(userID string, entities ...string) {
+func (c *Tenant) AssignEntitiesToUser(userID string, entities ...string) {
 	user := GetUserRoles(c.ID, userID)
 	if user == nil {
 		return
@@ -132,7 +132,7 @@ func (c *Company) AssignEntitiesToUser(userID string, entities ...string) {
 	}
 }
 
-func (c *Company) AssignEntitiesWithRole(userID, roleId string, entities ...string) {
+func (c *Tenant) AssignEntitiesWithRole(userID, roleId string, entities ...string) {
 	if len(entities) == 0 {
 		return
 	}
