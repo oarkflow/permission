@@ -3,7 +3,7 @@ package permission
 import (
 	"errors"
 	"slices"
-	
+
 	"github.com/oarkflow/maps"
 )
 
@@ -31,6 +31,7 @@ type Role struct {
 	lock        bool
 	permissions maps.IMap[string, *AttributeGroup]
 	descendants maps.IMap[string, *Role]
+	manager     *RoleManager
 }
 
 func (r *Role) Lock() {

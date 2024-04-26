@@ -6,20 +6,21 @@ import (
 	"github.com/oarkflow/maps"
 )
 
-var roleManager *UserRoleManager
+var roleManager *RoleManager
 
 func init() {
-	roleManager = NewUserRoleManager()
+	roleManager = NewRoleManager()
 }
 
 // User represents a user with a role
 type User struct {
-	ID string
+	ID      string
+	manager *RoleManager
 }
 
 // Can check if a user is allowed to do an activity based on their role and inherited permissions
 func (u *User) Can(tenant, module, entity, group, activity string) bool {
-	return Can(u.ID, tenant, module, entity, group, activity)
+	return Can(u.ID, tenant, module, entity, group, activity, u.manager)
 }
 
 type UserRole struct {
@@ -38,7 +39,7 @@ type TenantUser struct {
 	Roles                []*UserRole
 }
 
-type UserRoleManager struct {
+type RoleManager struct {
 	tenants     maps.IMap[string, *Tenant]
 	modules     maps.IMap[string, *Module]
 	entities    maps.IMap[string, *Entity]
@@ -47,8 +48,8 @@ type UserRoleManager struct {
 	tenantUsers maps.IMap[string, *TenantUser]
 }
 
-func NewUserRoleManager() *UserRoleManager {
-	return &UserRoleManager{
+func NewRoleManager() *RoleManager {
+	return &RoleManager{
 		tenants:     maps.New[string, *Tenant](),
 		modules:     maps.New[string, *Module](),
 		entities:    maps.New[string, *Entity](),
@@ -58,67 +59,67 @@ func NewUserRoleManager() *UserRoleManager {
 	}
 }
 
-func (u *UserRoleManager) AddRole(role *Role) {
+func (u *RoleManager) AddRole(role *Role) {
 	u.roles.Set(role.ID, role)
 }
 
-func (u *UserRoleManager) GetRole(role string) (*Role, bool) {
+func (u *RoleManager) GetRole(role string) (*Role, bool) {
 	return u.roles.Get(role)
 }
 
-func (u *UserRoleManager) Roles() map[string]*Role {
+func (u *RoleManager) Roles() map[string]*Role {
 	return u.roles.AsMap()
 }
 
-func (u *UserRoleManager) AddTenant(data *Tenant) {
+func (u *RoleManager) AddTenant(data *Tenant) {
 	u.tenants.Set(data.ID, data)
 }
 
-func (u *UserRoleManager) GetTenant(id string) (*Tenant, bool) {
+func (u *RoleManager) GetTenant(id string) (*Tenant, bool) {
 	return u.tenants.Get(id)
 }
 
-func (u *UserRoleManager) Tenants() map[string]*Tenant {
+func (u *RoleManager) Tenants() map[string]*Tenant {
 	return u.tenants.AsMap()
 }
 
-func (u *UserRoleManager) AddModule(data *Module) {
+func (u *RoleManager) AddModule(data *Module) {
 	u.modules.Set(data.ID, data)
 }
 
-func (u *UserRoleManager) GetModule(id string) (*Module, bool) {
+func (u *RoleManager) GetModule(id string) (*Module, bool) {
 	return u.modules.Get(id)
 }
 
-func (u *UserRoleManager) Modules() map[string]*Module {
+func (u *RoleManager) Modules() map[string]*Module {
 	return u.modules.AsMap()
 }
 
-func (u *UserRoleManager) AddUser(data *User) {
+func (u *RoleManager) AddUser(data *User) {
 	u.users.Set(data.ID, data)
 }
 
-func (u *UserRoleManager) GetUser(id string) (*User, bool) {
+func (u *RoleManager) GetUser(id string) (*User, bool) {
 	return u.users.Get(id)
 }
 
-func (u *UserRoleManager) Users() map[string]*User {
+func (u *RoleManager) Users() map[string]*User {
 	return u.users.AsMap()
 }
 
-func (u *UserRoleManager) AddEntity(data *Entity) {
+func (u *RoleManager) AddEntity(data *Entity) {
 	u.entities.Set(data.ID, data)
 }
 
-func (u *UserRoleManager) GetEntity(id string) (*Entity, bool) {
+func (u *RoleManager) GetEntity(id string) (*Entity, bool) {
 	return u.entities.Get(id)
 }
 
-func (u *UserRoleManager) Entities() map[string]*Entity {
+func (u *RoleManager) Entities() map[string]*Entity {
 	return u.entities.AsMap()
 }
 
-func (u *UserRoleManager) AddUserRole(userID string, roleID string, tenant *Tenant, module *Module, entity *Entity, canManageDescendants ...bool) {
+func (u *RoleManager) AddUserRole(userID string, roleID string, tenant *Tenant, module *Module, entity *Entity, canManageDescendants ...bool) {
 	manageDescendants := true
 	if len(canManageDescendants) > 0 {
 		manageDescendants = canManageDescendants[0]
@@ -143,7 +144,7 @@ func (u *UserRoleManager) AddUserRole(userID string, roleID string, tenant *Tena
 	u.tenantUsers.Set(tenant.ID, tenantUser)
 }
 
-func (u *UserRoleManager) GetTenantUserRoles(tenant string) *TenantUser {
+func (u *RoleManager) GetTenantUserRoles(tenant string) *TenantUser {
 	userRoles, ok := u.tenantUsers.Get(tenant)
 	if !ok {
 		return nil
@@ -151,7 +152,7 @@ func (u *UserRoleManager) GetTenantUserRoles(tenant string) *TenantUser {
 	return userRoles
 }
 
-func (u *UserRoleManager) GetUserRoles(tenant, userID string) *TenantUser {
+func (u *RoleManager) GetUserRoles(tenant, userID string) *TenantUser {
 	userRoles, ok := u.tenantUsers.Get(tenant)
 	if !ok {
 		return nil
@@ -175,7 +176,7 @@ func (u *UserRoleManager) GetUserRoles(tenant, userID string) *TenantUser {
 	}
 }
 
-func (u *UserRoleManager) GetUserRolesByTenant(tenant string) []*UserRole {
+func (u *RoleManager) GetUserRolesByTenant(tenant string) []*UserRole {
 	userRoles, ok := u.tenantUsers.Get(tenant)
 	if !ok {
 		return nil
@@ -183,7 +184,7 @@ func (u *UserRoleManager) GetUserRolesByTenant(tenant string) []*UserRole {
 	return userRoles.Roles
 }
 
-func (u *UserRoleManager) GetUserRoleByTenantAndUser(tenant, userID string) (ut []*UserRole) {
+func (u *RoleManager) GetUserRoleByTenantAndUser(tenant, userID string) (ut []*UserRole) {
 	userRoles, ok := u.tenantUsers.Get(tenant)
 	if !ok {
 		return
@@ -196,7 +197,7 @@ func (u *UserRoleManager) GetUserRoleByTenantAndUser(tenant, userID string) (ut 
 	return
 }
 
-func (u *UserRoleManager) GetAllowedRoles(userRoles *TenantUser, module, entity string) []string {
+func (u *RoleManager) GetAllowedRoles(userRoles *TenantUser, module, entity string) []string {
 	if userRoles == nil {
 		return nil
 	}
@@ -274,4 +275,8 @@ func (u *UserRoleManager) GetAllowedRoles(userRoles *TenantUser, module, entity 
 		}
 	}
 	return slices.Compact(allowedRoles)
+}
+
+func DefaultRoleManager() *RoleManager {
+	return roleManager
 }
