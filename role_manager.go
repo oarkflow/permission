@@ -19,8 +19,8 @@ type User struct {
 }
 
 // Can check if a user is allowed to do an activity based on their role and inherited permissions
-func (u *User) Can(tenant, module, entity, group, activity string) bool {
-	return Can(u.ID, tenant, module, entity, group, activity, u.manager)
+func (u *User) Can(options ...func(*Option)) bool {
+	return Can(u.ID, options...)
 }
 
 type UserRole struct {

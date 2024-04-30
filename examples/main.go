@@ -32,9 +32,9 @@ func main() {
 	tenant.AssignEntitiesToUser(userA.ID, e29.ID)
 	tenant.AssignEntitiesToUser(userB.ID, e30.ID)
 	tenant.AssignEntitiesToUser(userC.ID, e33.ID)
-	fmt.Println("R:", permission.Can(userA.ID, "TenantA", "ModuleA", e29.ID, "page", "/coding/1/2/start-coding POST"), "E:", true)
-	fmt.Println("R:", permission.Can(userA.ID, "TenantA", "ModuleA", e29.ID, "page", "/coding/1/open GET"), "E:", true)
-	fmt.Println("R:", permission.Can(userA.ID, "TenantA", "ModuleA", e29.ID, "backend", "/coding/1/2/start-coding POST"), "E:", false)
+	fmt.Println("R:", permission.Can(userA.ID, permission.WithTenant("TenantA"), permission.WithModule("ModuleA"), permission.WithEntity(e29.ID), permission.WithGroup("page"), permission.WithActivity("/coding/1/2/start-coding POST")), "E:", true)
+	fmt.Println("R:", permission.Can(userA.ID, permission.WithTenant("TenantA"), permission.WithModule("ModuleA"), permission.WithEntity(e29.ID), permission.WithGroup("page"), permission.WithActivity("/coding/1/open GET")), "E:", true)
+	fmt.Println("R:", permission.Can(userA.ID, permission.WithTenant("TenantA"), permission.WithModule("ModuleA"), permission.WithEntity(e29.ID), permission.WithGroup("backend"), permission.WithActivity("/coding/1/2/start-coding POST")), "E:", false)
 }
 
 func myRoles() (coder *permission.Role, qa *permission.Role, suspendManager *permission.Role, admin *permission.Role) {

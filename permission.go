@@ -4,18 +4,22 @@ import (
 	"github.com/oarkflow/maps"
 )
 
-func Can(userID, tenant, module, entity, group, activity string, managers ...*RoleManager) bool {
-	manager := getRoleManager(managers...)
+func Can(userID string, options ...func(*Option)) bool {
+	svr := &Option{userID: userID}
+	for _, o := range options {
+		o(svr)
+	}
+	manager := getRoleManager(svr.manager)
 	var allowed []string
-	if tenant == "" {
+	if svr.tenant == "" {
 		return false
 	}
-	tenantUser := manager.GetUserRoles(tenant, userID)
+	tenantUser := manager.GetUserRoles(svr.tenant, userID)
 	if tenantUser == nil {
 		return false
 	}
 	var userRoles []*Role
-	roles := manager.GetAllowedRoles(tenantUser, module, entity)
+	roles := manager.GetAllowedRoles(tenantUser, svr.module, svr.entity)
 	tenantUser.Tenant.Roles.ForEach(func(_ string, r *Role) bool {
 		for _, rt := range roles {
 			if r.ID == rt {
@@ -26,12 +30,13 @@ func Can(userID, tenant, module, entity, group, activity string, managers ...*Ro
 		return true
 	})
 	for _, role := range userRoles {
-		if role.Has(group, activity, allowed...) {
+		if role.Has(svr.group, svr.activity, allowed...) {
 			return true
 		}
 	}
 	return false
 }
+
 func NewTenant(id string, managers ...*RoleManager) *Tenant {
 	tenant := &Tenant{
 		ID:          id,
