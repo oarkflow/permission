@@ -9,11 +9,11 @@ func Can(userID string, options ...func(*Option)) bool {
 	for _, o := range options {
 		o(svr)
 	}
-	manager := getRoleManager(svr.manager)
-	var allowed []string
 	if svr.tenant == "" {
 		return false
 	}
+	manager := getRoleManager(svr.manager)
+	var allowed []string
 	tenantUser := manager.GetUserRoles(svr.tenant, userID)
 	if tenantUser == nil {
 		return false
