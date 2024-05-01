@@ -8,33 +8,52 @@ import (
 
 func main() {
 	tenant := permission.NewTenant("TenantA")
-	module := permission.NewModule("ModuleA")
-	tenant.AddModule(module)
-	// tenant.SetDefaultModule(module.ID)
+	namespace := permission.NewNamespace("NamespaceA")
+	tenant.AddNamespace(namespace)
+	// tenant.SetDefaultNamespace(namespace.ID)
 
 	coder, qa, suspendManager, _ := myRoles()
 	tenant.AddRole(coder, qa, suspendManager)
 
-	e29 := permission.NewEntity("29")
-	e30 := permission.NewEntity("30")
-	e33 := permission.NewEntity("33")
+	e29 := permission.NewScope("29")
+	e30 := permission.NewScope("30")
+	e33 := permission.NewScope("33")
 
-	tenant.AddEntities(e29, e30, e33)
+	tenant.AddScopes(e29, e30, e33)
 
-	userA := permission.NewUser("userA")
-	userB := permission.NewUser("userB")
-	userC := permission.NewUser("userC")
+	principalA := permission.NewPrincipal("principalA")
+	principalB := permission.NewPrincipal("principalB")
+	principalC := permission.NewPrincipal("principalC")
 
-	tenant.AddUser(userA.ID, coder.ID)
-	tenant.AddUser(userB.ID, qa.ID)
-	tenant.AddUser(userC.ID, suspendManager.ID)
+	tenant.AddPrincipal(principalA.ID, coder.ID)
+	tenant.AddPrincipal(principalB.ID, qa.ID)
+	tenant.AddPrincipal(principalC.ID, suspendManager.ID)
 
-	tenant.AssignEntitiesToUser(userA.ID, e29.ID)
-	tenant.AssignEntitiesToUser(userB.ID, e30.ID)
-	tenant.AssignEntitiesToUser(userC.ID, e33.ID)
-	fmt.Println("R:", permission.Can(userA.ID, permission.WithTenant("TenantA"), permission.WithModule("ModuleA"), permission.WithEntity(e29.ID), permission.WithGroup("page"), permission.WithActivity("/coding/1/2/start-coding POST")), "E:", true)
-	fmt.Println("R:", permission.Can(userA.ID, permission.WithTenant("TenantA"), permission.WithModule("ModuleA"), permission.WithEntity(e29.ID), permission.WithGroup("page"), permission.WithActivity("/coding/1/open GET")), "E:", true)
-	fmt.Println("R:", permission.Can(userA.ID, permission.WithTenant("TenantA"), permission.WithModule("ModuleA"), permission.WithEntity(e29.ID), permission.WithGroup("backend"), permission.WithActivity("/coding/1/2/start-coding POST")), "E:", false)
+	tenant.AssignScopesToPrincipal(principalA.ID, e29.ID)
+	tenant.AssignScopesToPrincipal(principalB.ID, e30.ID)
+	tenant.AssignScopesToPrincipal(principalC.ID, e33.ID)
+
+	fmt.Println("R:", permission.Can(principalA.ID,
+		permission.WithTenant("TenantA"),
+		permission.WithNamespace("NamespaceA"),
+		permission.WithScope(e29.ID),
+		permission.WithGroup("page"),
+		permission.WithActivity("/coding/1/2/start-coding POST"),
+	), "E:", true)
+	fmt.Println("R:", permission.Can(principalA.ID,
+		permission.WithTenant("TenantA"),
+		permission.WithNamespace("NamespaceA"),
+		permission.WithScope(e29.ID),
+		permission.WithGroup("page"),
+		permission.WithActivity("/coding/1/open GET"),
+	), "E:", true)
+	fmt.Println("R:", permission.Can(principalA.ID,
+		permission.WithTenant("TenantA"),
+		permission.WithNamespace("NamespaceA"),
+		permission.WithScope(e29.ID),
+		permission.WithGroup("backend"),
+		permission.WithActivity("/coding/1/2/start-coding POST"),
+	), "E:", false)
 }
 
 func myRoles() (coder *permission.Role, qa *permission.Role, suspendManager *permission.Role, admin *permission.Role) {
@@ -66,8 +85,8 @@ func myRoles() (coder *permission.Role, qa *permission.Role, suspendManager *per
 
 	admin = permission.NewRole("admin")
 	perm = []permission.Attribute{
-		{"/admin/user/add", "POST"},
-		{"/admin/user/edit", "PUT"},
+		{"/admin/principal/add", "POST"},
+		{"/admin/principal/edit", "PUT"},
 	}
 	admin.AddPermission("page", perm...)
 	admin.AddDescendent(coder, qa, suspendManager)

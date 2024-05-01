@@ -4,32 +4,41 @@ import (
 	"github.com/oarkflow/maps"
 )
 
-func Can(userID string, options ...func(*Option)) bool {
-	svr := &Option{userID: userID}
+func Can(principalID string, options ...func(*Option)) bool {
+	svr := &Option{}
 	for _, o := range options {
 		o(svr)
 	}
+	manager := getRoleManager(svr.manager)
+	_, exists := manager.GetPrincipal(principalID)
+	if !exists {
+		return false
+	}
+
 	if svr.tenant == "" {
 		return false
 	}
-	manager := getRoleManager(svr.manager)
-	var allowed []string
-	tenantUser := manager.GetUserRoles(svr.tenant, userID)
-	if tenantUser == nil {
+	_, exists = manager.GetTenant(svr.tenant)
+	if !exists {
 		return false
 	}
-	var userRoles []*Role
-	roles := manager.GetAllowedRoles(tenantUser, svr.module, svr.entity)
-	tenantUser.Tenant.Roles.ForEach(func(_ string, r *Role) bool {
+	var allowed []string
+	tenantPrincipal := manager.GetPrincipalRoles(svr.tenant, principalID)
+	if tenantPrincipal == nil {
+		return false
+	}
+	var principalRoles []*Role
+	roles := manager.GetAllowedRoles(tenantPrincipal, svr.namespace, svr.scope)
+	tenantPrincipal.Tenant.Roles.ForEach(func(_ string, r *Role) bool {
 		for _, rt := range roles {
 			if r.ID == rt {
-				userRoles = append(userRoles, r)
+				principalRoles = append(principalRoles, r)
 			}
 		}
 		allowed = append(allowed, r.ID)
 		return true
 	})
-	for _, role := range userRoles {
+	for _, role := range principalRoles {
 		if role.Has(svr.group, svr.activity, allowed...) {
 			return true
 		}
@@ -40,32 +49,32 @@ func Can(userID string, options ...func(*Option)) bool {
 func NewTenant(id string, managers ...*RoleManager) *Tenant {
 	tenant := &Tenant{
 		ID:          id,
-		Modules:     maps.New[string, *Module](),
+		Namespaces:  maps.New[string, *Namespace](),
 		Roles:       maps.New[string, *Role](),
-		Entities:    maps.New[string, *Entity](),
+		Scopes:      maps.New[string, *Scope](),
 		descendants: maps.New[string, *Tenant](),
 		manager:     getRoleManager(managers...),
 	}
 	tenant.manager.AddTenant(tenant)
 	return tenant
 }
-func NewModule(id string, managers ...*RoleManager) *Module {
-	module := &Module{
-		ID:       id,
-		Roles:    maps.New[string, *Role](),
-		Entities: maps.New[string, *Entity](),
-		manager:  getRoleManager(managers...),
+func NewNamespace(id string, managers ...*RoleManager) *Namespace {
+	namespace := &Namespace{
+		ID:      id,
+		Roles:   maps.New[string, *Role](),
+		Scopes:  maps.New[string, *Scope](),
+		manager: getRoleManager(managers...),
 	}
-	module.manager.AddModule(module)
-	return module
+	namespace.manager.AddNamespace(namespace)
+	return namespace
 }
-func NewEntity(id string, managers ...*RoleManager) *Entity {
-	entity := &Entity{
+func NewScope(id string, managers ...*RoleManager) *Scope {
+	scope := &Scope{
 		ID:      id,
 		manager: getRoleManager(managers...),
 	}
-	entity.manager.AddEntity(entity)
-	return entity
+	scope.manager.AddScope(scope)
+	return scope
 }
 func NewRole(id string, managers ...*RoleManager) *Role {
 	role := &Role{
@@ -83,13 +92,13 @@ func NewAttribute(resource, action string) Attribute {
 		Action:   action,
 	}
 }
-func NewUser(id string, managers ...*RoleManager) *User {
-	user := &User{
+func NewPrincipal(id string, managers ...*RoleManager) *Principal {
+	principal := &Principal{
 		ID:      id,
 		manager: getRoleManager(managers...),
 	}
-	user.manager.AddUser(user)
-	return user
+	principal.manager.AddPrincipal(principal)
+	return principal
 }
 
 func getRoleManager(managers ...*RoleManager) *RoleManager {

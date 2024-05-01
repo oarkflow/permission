@@ -5,13 +5,13 @@ import (
 )
 
 type Tenant struct {
-	ID            string
-	defaultModule *Module
-	Modules       maps.IMap[string, *Module]
-	Roles         maps.IMap[string, *Role]
-	Entities      maps.IMap[string, *Entity]
-	descendants   maps.IMap[string, *Tenant]
-	manager       *RoleManager
+	ID               string
+	defaultNamespace *Namespace
+	Namespaces       maps.IMap[string, *Namespace]
+	Roles            maps.IMap[string, *Role]
+	Scopes           maps.IMap[string, *Scope]
+	descendants      maps.IMap[string, *Tenant]
+	manager          *RoleManager
 }
 
 func (c *Tenant) GetDescendantTenants() []*Tenant {
@@ -32,15 +32,15 @@ func (c *Tenant) AddDescendent(descendants ...*Tenant) error {
 	return nil
 }
 
-func (c *Tenant) SetDefaultModule(module string) {
-	if mod, ok := c.Modules.Get(module); ok {
-		c.defaultModule = mod
+func (c *Tenant) SetDefaultNamespace(namespace string) {
+	if mod, ok := c.Namespaces.Get(namespace); ok {
+		c.defaultNamespace = mod
 	}
 }
 
-func (c *Tenant) AddModule(modules ...*Module) {
-	for _, module := range modules {
-		c.Modules.Set(module.ID, module)
+func (c *Tenant) AddNamespace(namespaces ...*Namespace) {
+	for _, namespace := range namespaces {
+		c.Namespaces.Set(namespace.ID, namespace)
 	}
 }
 
@@ -50,36 +50,36 @@ func (c *Tenant) AddRole(roles ...*Role) {
 	}
 }
 
-func (c *Tenant) AddEntities(entities ...*Entity) {
-	for _, entity := range entities {
-		c.Entities.Set(entity.ID, entity)
-		if c.defaultModule != nil {
-			c.defaultModule.Entities.Set(entity.ID, entity)
+func (c *Tenant) AddScopes(scopes ...*Scope) {
+	for _, scope := range scopes {
+		c.Scopes.Set(scope.ID, scope)
+		if c.defaultNamespace != nil {
+			c.defaultNamespace.Scopes.Set(scope.ID, scope)
 		}
 	}
 }
 
-func (c *Tenant) AddEntitiesToModule(module string, entities ...string) {
-	for _, id := range entities {
-		entity, exists := c.Entities.Get(id)
+func (c *Tenant) AddScopesToNamespace(namespace string, scopes ...string) {
+	for _, id := range scopes {
+		scope, exists := c.Scopes.Get(id)
 		if !exists {
 			return
 		}
-		if mod, ok := c.Modules.Get(module); ok {
-			mod.Entities.Set(id, entity)
+		if mod, ok := c.Namespaces.Get(namespace); ok {
+			mod.Scopes.Set(id, scope)
 		} else {
 			return
 		}
 	}
 }
 
-func (c *Tenant) AddRolesToModule(module string, roles ...string) {
+func (c *Tenant) AddRolesToNamespace(namespace string, roles ...string) {
 	for _, id := range roles {
 		role, exists := c.Roles.Get(id)
 		if !exists {
 			return
 		}
-		if mod, ok := c.Modules.Get(module); ok {
+		if mod, ok := c.Namespaces.Get(namespace); ok {
 			mod.Roles.Set(id, role)
 		} else {
 			return
@@ -87,85 +87,85 @@ func (c *Tenant) AddRolesToModule(module string, roles ...string) {
 	}
 }
 
-func (c *Tenant) AddUserRole(userID string, roleID string, tenant *Tenant, module *Module, entity *Entity, canManageDescendants ...bool) {
-	c.manager.AddUserRole(userID, roleID, tenant, module, entity, canManageDescendants...)
+func (c *Tenant) AddPrincipalRole(principalID string, roleID string, tenant *Tenant, namespace *Namespace, scope *Scope, canManageDescendants ...bool) {
+	c.manager.AddPrincipalRole(principalID, roleID, tenant, namespace, scope, canManageDescendants...)
 }
 
-func (c *Tenant) AddUser(user, role string) {
+func (c *Tenant) AddPrincipal(principal, role string) {
 	if _, ok := c.Roles.Get(role); ok {
-		c.AddUserRole(user, role, c, nil, nil)
-		if c.defaultModule != nil {
-			c.AddUserRole(user, role, c, c.defaultModule, nil)
+		c.AddPrincipalRole(principal, role, c, nil, nil)
+		if c.defaultNamespace != nil {
+			c.AddPrincipalRole(principal, role, c, c.defaultNamespace, nil)
 		}
 	}
 }
 
-func (c *Tenant) AddUserInModule(user, module string, roles ...string) {
-	mod, exists := c.Modules.Get(module)
+func (c *Tenant) AddPrincipalInNamespace(principal, namespace string, roles ...string) {
+	mod, exists := c.Namespaces.Get(namespace)
 	if !exists {
 		return
 	}
 	if len(roles) > 0 {
 		for _, r := range roles {
 			if role, ok := c.Roles.Get(r); ok {
-				c.AddUserRole(user, role.ID, c, mod, nil)
+				c.AddPrincipalRole(principal, role.ID, c, mod, nil)
 			}
 		}
 	} else {
-		for _, ur := range c.manager.GetUserRolesByTenant(c.ID) {
-			if ur.UserID == user && ur.Module != nil && ur.Module.ID != module {
-				c.AddUserRole(user, ur.RoleID, c, mod, nil)
+		for _, ur := range c.manager.GetPrincipalRolesByTenant(c.ID) {
+			if ur.PrincipalID == principal && ur.Namespace != nil && ur.Namespace.ID != namespace {
+				c.AddPrincipalRole(principal, ur.RoleID, c, mod, nil)
 			}
 		}
 	}
 }
 
-func (c *Tenant) AssignEntitiesToUser(userID string, entities ...string) {
-	user := c.manager.GetUserRoles(c.ID, userID)
-	if user == nil {
+func (c *Tenant) AssignScopesToPrincipal(principalID string, scopes ...string) {
+	principal := c.manager.GetPrincipalRoles(c.ID, principalID)
+	if principal == nil {
 		return
 	}
-	for _, role := range user.Roles {
-		for _, id := range entities {
-			if entity, ok := c.Entities.Get(id); ok {
-				c.AddUserRole(userID, role.RoleID, c, nil, entity)
-				if c.defaultModule != nil {
-					c.AddUserRole(userID, role.RoleID, c, c.defaultModule, entity)
+	for _, role := range principal.Roles {
+		for _, id := range scopes {
+			if scope, ok := c.Scopes.Get(id); ok {
+				c.AddPrincipalRole(principalID, role.RoleID, c, nil, scope)
+				if c.defaultNamespace != nil {
+					c.AddPrincipalRole(principalID, role.RoleID, c, c.defaultNamespace, scope)
 				}
 			}
 		}
 	}
 }
 
-func (c *Tenant) AssignEntitiesWithRole(userID, roleId string, entities ...string) {
-	if len(entities) == 0 {
+func (c *Tenant) AssignScopesWithRole(principalID, roleId string, scopes ...string) {
+	if len(scopes) == 0 {
 		return
 	}
-	user := c.manager.GetUserRoles(c.ID, userID)
-	if user == nil {
+	principal := c.manager.GetPrincipalRoles(c.ID, principalID)
+	if principal == nil {
 		return
 	}
 	_, ok := c.Roles.Get(roleId)
 	if !ok {
 		return
 	}
-	for _, id := range entities {
-		if entity, ok := c.Entities.Get(id); ok {
-			c.AddUserRole(userID, roleId, c, nil, entity)
-			if c.defaultModule != nil {
-				c.AddUserRole(userID, roleId, c, c.defaultModule, entity)
+	for _, id := range scopes {
+		if scope, ok := c.Scopes.Get(id); ok {
+			c.AddPrincipalRole(principalID, roleId, c, nil, scope)
+			if c.defaultNamespace != nil {
+				c.AddPrincipalRole(principalID, roleId, c, c.defaultNamespace, scope)
 			}
 		}
 	}
 }
 
-type Module struct {
-	ID       string
-	Roles    maps.IMap[string, *Role]
-	Entities maps.IMap[string, *Entity]
-	manager  *RoleManager
+type Namespace struct {
+	ID      string
+	Roles   maps.IMap[string, *Role]
+	Scopes  maps.IMap[string, *Scope]
+	manager *RoleManager
 }
-type Entity struct {
+type Scope struct {
 	ID      string
 	manager *RoleManager
 }

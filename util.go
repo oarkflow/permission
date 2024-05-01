@@ -26,38 +26,38 @@ func (p *Pool[T]) Put(s []T) {
 }
 
 var (
-	stringSlice   = NewPool[string](100)
-	userRoleSlice = NewPool[*UserRole](100)
+	stringSlice        = NewPool[string](100)
+	principalRoleSlice = NewPool[*PrincipalRole](100)
 )
 
 func MatchResource(value, pattern string) bool {
 	vIndex, pIndex := 0, 0
 	vLen, pLen := len(value), len(pattern)
-	
+
 	for pIndex < pLen {
 		if pattern[pIndex] == '*' {
 			// If '*' is the last character in the pattern, it matches everything
 			if pIndex == pLen-1 {
 				return true
 			}
-			
+
 			// Find the next character in pattern after '*'
 			nextChar := pattern[pIndex+1]
-			
+
 			// If the next character is '*', skip it
 			if nextChar == '*' {
 				pIndex++
 				continue
 			}
-			
+
 			// Find the next occurrence of the character after '*' in the value
 			nextIndex := strings.IndexByte(value[vIndex:], nextChar)
-			
+
 			// If the character is not found, no match
 			if nextIndex == -1 {
 				return false
 			}
-			
+
 			// Move the value index to the next occurrence of the character
 			vIndex += nextIndex
 		} else if pIndex < pLen && vIndex < vLen && (pattern[pIndex] == value[vIndex] || pattern[pIndex] == ':') {
@@ -82,7 +82,7 @@ func MatchResource(value, pattern string) bool {
 			return false
 		}
 	}
-	
+
 	// If both value and pattern are exhausted, return true
 	return vIndex == vLen && pIndex == pLen
 }

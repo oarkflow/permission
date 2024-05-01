@@ -9,53 +9,53 @@ import (
 var roleManager *RoleManager
 
 func init() {
-	roleManager = NewRoleManager()
+	roleManager = New()
 }
 
-// User represents a user with a role
-type User struct {
+// Principal represents a principal with a role
+type Principal struct {
 	ID      string
 	manager *RoleManager
 }
 
-// Can check if a user is allowed to do an activity based on their role and inherited permissions
-func (u *User) Can(options ...func(*Option)) bool {
+// Can check if a principal is allowed to do an activity based on their role and inherited permissions
+func (u *Principal) Can(options ...func(*Option)) bool {
 	return Can(u.ID, options...)
 }
 
-type UserRole struct {
-	UserID               string
+type PrincipalRole struct {
+	PrincipalID          string
 	RoleID               string
 	CanManageDescendants bool
 	Tenant               *Tenant
-	Module               *Module
-	Entity               *Entity
+	Namespace            *Namespace
+	Scope                *Scope
 }
 
-type TenantUser struct {
+type TenantPrincipal struct {
 	Tenant               *Tenant
-	User                 *User
+	Principal            *Principal
 	CanManageDescendants bool
-	Roles                []*UserRole
+	Roles                []*PrincipalRole
 }
 
 type RoleManager struct {
-	tenants     maps.IMap[string, *Tenant]
-	modules     maps.IMap[string, *Module]
-	entities    maps.IMap[string, *Entity]
-	users       maps.IMap[string, *User]
-	roles       maps.IMap[string, *Role]
-	tenantUsers maps.IMap[string, *TenantUser]
+	tenants          maps.IMap[string, *Tenant]
+	namespaces       maps.IMap[string, *Namespace]
+	scopes           maps.IMap[string, *Scope]
+	principals       maps.IMap[string, *Principal]
+	roles            maps.IMap[string, *Role]
+	tenantPrincipals maps.IMap[string, *TenantPrincipal]
 }
 
-func NewRoleManager() *RoleManager {
+func New() *RoleManager {
 	return &RoleManager{
-		tenants:     maps.New[string, *Tenant](),
-		modules:     maps.New[string, *Module](),
-		entities:    maps.New[string, *Entity](),
-		users:       maps.New[string, *User](),
-		roles:       maps.New[string, *Role](),
-		tenantUsers: maps.New[string, *TenantUser](),
+		tenants:          maps.New[string, *Tenant](),
+		namespaces:       maps.New[string, *Namespace](),
+		scopes:           maps.New[string, *Scope](),
+		principals:       maps.New[string, *Principal](),
+		roles:            maps.New[string, *Role](),
+		tenantPrincipals: maps.New[string, *TenantPrincipal](),
 	}
 }
 
@@ -83,194 +83,194 @@ func (u *RoleManager) Tenants() map[string]*Tenant {
 	return u.tenants.AsMap()
 }
 
-func (u *RoleManager) AddModule(data *Module) {
-	u.modules.Set(data.ID, data)
+func (u *RoleManager) AddNamespace(data *Namespace) {
+	u.namespaces.Set(data.ID, data)
 }
 
-func (u *RoleManager) GetModule(id string) (*Module, bool) {
-	return u.modules.Get(id)
+func (u *RoleManager) GetNamespace(id string) (*Namespace, bool) {
+	return u.namespaces.Get(id)
 }
 
-func (u *RoleManager) Modules() map[string]*Module {
-	return u.modules.AsMap()
+func (u *RoleManager) Namespaces() map[string]*Namespace {
+	return u.namespaces.AsMap()
 }
 
-func (u *RoleManager) AddUser(data *User) {
-	u.users.Set(data.ID, data)
+func (u *RoleManager) AddPrincipal(data *Principal) {
+	u.principals.Set(data.ID, data)
 }
 
-func (u *RoleManager) GetUser(id string) (*User, bool) {
-	return u.users.Get(id)
+func (u *RoleManager) GetPrincipal(id string) (*Principal, bool) {
+	return u.principals.Get(id)
 }
 
-func (u *RoleManager) Users() map[string]*User {
-	return u.users.AsMap()
+func (u *RoleManager) Principals() map[string]*Principal {
+	return u.principals.AsMap()
 }
 
-func (u *RoleManager) AddEntity(data *Entity) {
-	u.entities.Set(data.ID, data)
+func (u *RoleManager) AddScope(data *Scope) {
+	u.scopes.Set(data.ID, data)
 }
 
-func (u *RoleManager) GetEntity(id string) (*Entity, bool) {
-	return u.entities.Get(id)
+func (u *RoleManager) GetScope(id string) (*Scope, bool) {
+	return u.scopes.Get(id)
 }
 
-func (u *RoleManager) Entities() map[string]*Entity {
-	return u.entities.AsMap()
+func (u *RoleManager) Scopes() map[string]*Scope {
+	return u.scopes.AsMap()
 }
 
-func (u *RoleManager) AddUserRole(userID string, roleID string, tenant *Tenant, module *Module, entity *Entity, canManageDescendants ...bool) {
+func (u *RoleManager) AddPrincipalRole(principalID string, roleID string, tenant *Tenant, namespace *Namespace, scope *Scope, canManageDescendants ...bool) {
 	manageDescendants := true
 	if len(canManageDescendants) > 0 {
 		manageDescendants = canManageDescendants[0]
 	}
-	role := &UserRole{
-		UserID:               userID,
+	role := &PrincipalRole{
+		PrincipalID:          principalID,
 		RoleID:               roleID,
 		Tenant:               tenant,
-		Module:               module,
-		Entity:               entity,
+		Namespace:            namespace,
+		Scope:                scope,
 		CanManageDescendants: manageDescendants,
 	}
-	tenantUser, ok := u.tenantUsers.Get(tenant.ID)
+	tenantPrincipal, ok := u.tenantPrincipals.Get(tenant.ID)
 	if !ok {
-		tenantUser = &TenantUser{
+		tenantPrincipal = &TenantPrincipal{
 			Tenant:               tenant,
-			User:                 &User{ID: userID},
+			Principal:            &Principal{ID: principalID},
 			CanManageDescendants: manageDescendants,
 		}
 	}
-	tenantUser.Roles = append(tenantUser.Roles, role)
-	u.tenantUsers.Set(tenant.ID, tenantUser)
+	tenantPrincipal.Roles = append(tenantPrincipal.Roles, role)
+	u.tenantPrincipals.Set(tenant.ID, tenantPrincipal)
 }
 
-func (u *RoleManager) GetTenantUserRoles(tenant string) *TenantUser {
-	userRoles, ok := u.tenantUsers.Get(tenant)
+func (u *RoleManager) GetTenantPrincipalRoles(tenant string) *TenantPrincipal {
+	principalRoles, ok := u.tenantPrincipals.Get(tenant)
 	if !ok {
 		return nil
 	}
-	return userRoles
+	return principalRoles
 }
 
-func (u *RoleManager) GetUserRoles(tenant, userID string) *TenantUser {
-	userRoles, ok := u.tenantUsers.Get(tenant)
+func (u *RoleManager) GetPrincipalRoles(tenant, principalID string) *TenantPrincipal {
+	principalRoles, ok := u.tenantPrincipals.Get(tenant)
 	if !ok {
 		return nil
 	}
-	roles := make([]*UserRole, 0, len(userRoles.Roles))
-	userFound := false
-	for _, ut := range userRoles.Roles {
-		if ut.UserID == userID {
-			userFound = true
+	roles := make([]*PrincipalRole, 0, len(principalRoles.Roles))
+	principalFound := false
+	for _, ut := range principalRoles.Roles {
+		if ut.PrincipalID == principalID {
+			principalFound = true
 			roles = append(roles, ut)
 		}
 	}
-	if !userFound {
+	if !principalFound {
 		return nil
 	}
-	return &TenantUser{
-		Tenant:               userRoles.Tenant,
-		User:                 userRoles.User,
-		CanManageDescendants: userRoles.CanManageDescendants,
+	return &TenantPrincipal{
+		Tenant:               principalRoles.Tenant,
+		Principal:            principalRoles.Principal,
+		CanManageDescendants: principalRoles.CanManageDescendants,
 		Roles:                roles,
 	}
 }
 
-func (u *RoleManager) GetUserRolesByTenant(tenant string) []*UserRole {
-	userRoles, ok := u.tenantUsers.Get(tenant)
+func (u *RoleManager) GetPrincipalRolesByTenant(tenant string) []*PrincipalRole {
+	principalRoles, ok := u.tenantPrincipals.Get(tenant)
 	if !ok {
 		return nil
 	}
-	return userRoles.Roles
+	return principalRoles.Roles
 }
 
-func (u *RoleManager) GetUserRoleByTenantAndUser(tenant, userID string) (ut []*UserRole) {
-	userRoles, ok := u.tenantUsers.Get(tenant)
+func (u *RoleManager) GetPrincipalRoleByTenantAndPrincipal(tenant, principalID string) (ut []*PrincipalRole) {
+	principalRoles, ok := u.tenantPrincipals.Get(tenant)
 	if !ok {
 		return
 	}
-	for _, ur := range userRoles.Roles {
-		if ur.UserID == userID {
+	for _, ur := range principalRoles.Roles {
+		if ur.PrincipalID == principalID {
 			ut = append(ut, ur)
 		}
 	}
 	return
 }
 
-func (u *RoleManager) GetAllowedRoles(userRoles *TenantUser, module, entity string) []string {
-	if userRoles == nil {
+func (u *RoleManager) GetAllowedRoles(principalRoles *TenantPrincipal, namespace, scope string) []string {
+	if principalRoles == nil {
 		return nil
 	}
 	// Reusable slices
-	moduleEntities := stringSlice.Get()
-	moduleRoles := stringSlice.Get()
-	entities := stringSlice.Get()
+	namespaceScopes := stringSlice.Get()
+	namespaceRoles := stringSlice.Get()
+	scopes := stringSlice.Get()
 	allowedRoles := stringSlice.Get()
-	userTenantRole := userRoleSlice.Get()
-	userModuleEntityRole := userRoleSlice.Get()
+	principalTenantRole := principalRoleSlice.Get()
+	principalNamespaceScopeRole := principalRoleSlice.Get()
 	defer func() {
-		stringSlice.Put(moduleEntities)
-		stringSlice.Put(moduleRoles)
-		stringSlice.Put(entities)
+		stringSlice.Put(namespaceScopes)
+		stringSlice.Put(namespaceRoles)
+		stringSlice.Put(scopes)
 		stringSlice.Put(allowedRoles)
-		userRoleSlice.Put(userTenantRole)
-		userRoleSlice.Put(userModuleEntityRole)
+		principalRoleSlice.Put(principalTenantRole)
+		principalRoleSlice.Put(principalNamespaceScopeRole)
 	}()
 
-	mod, modExists := userRoles.Tenant.Modules.Get(module)
-	_, entExists := userRoles.Tenant.Entities.Get(entity)
-	if (entity != "" && !entExists) || (module != "" && !modExists) {
+	mod, modExists := principalRoles.Tenant.Namespaces.Get(namespace)
+	_, entExists := principalRoles.Tenant.Scopes.Get(scope)
+	if (scope != "" && !entExists) || (namespace != "" && !modExists) {
 		return nil
 	}
 
 	if modExists {
-		mod.Entities.ForEach(func(id string, _ *Entity) bool {
-			moduleEntities = append(moduleEntities, id)
+		mod.Scopes.ForEach(func(id string, _ *Scope) bool {
+			namespaceScopes = append(namespaceScopes, id)
 			return true
 		})
 		mod.Roles.ForEach(func(id string, _ *Role) bool {
-			moduleRoles = append(moduleRoles, id)
+			namespaceRoles = append(namespaceRoles, id)
 			return true
 		})
 	}
 
-	for _, userRole := range userRoles.Roles {
-		if userRole.Entity != nil {
-			entities = append(entities, userRole.Entity.ID)
+	for _, principalRole := range principalRoles.Roles {
+		if principalRole.Scope != nil {
+			scopes = append(scopes, principalRole.Scope.ID)
 		}
-		if userRole.Module != nil && userRole.Entity != nil { // if role for module and entity
-			userModuleEntityRole = append(userModuleEntityRole, userRole)
-		} else if userRole.Module == nil && userRole.Entity == nil { // if role for tenant
-			userTenantRole = append(userTenantRole, userRole)
+		if principalRole.Namespace != nil && principalRole.Scope != nil { // if role for namespace and scope
+			principalNamespaceScopeRole = append(principalNamespaceScopeRole, principalRole)
+		} else if principalRole.Namespace == nil && principalRole.Scope == nil { // if role for tenant
+			principalTenantRole = append(principalTenantRole, principalRole)
 		}
 	}
 
-	if len(moduleRoles) > 0 {
-		for _, modRole := range moduleRoles {
+	if len(namespaceRoles) > 0 {
+		for _, modRole := range namespaceRoles {
 			allowedRoles = append(allowedRoles, modRole)
 		}
 	} else {
-		for _, r := range userTenantRole {
+		for _, r := range principalTenantRole {
 			allowedRoles = append(allowedRoles, r.RoleID)
 		}
 	}
 
-	noTenantEntities := !slices.Contains(entities, entity) && len(userTenantRole) == 0
-	noModuleEntities := len(moduleEntities) > 0 && !slices.Contains(moduleEntities, entity)
-	if noTenantEntities || noModuleEntities {
+	noTenantScopes := !slices.Contains(scopes, scope) && len(principalTenantRole) == 0
+	noNamespaceScopes := len(namespaceScopes) > 0 && !slices.Contains(namespaceScopes, scope)
+	if noTenantScopes || noNamespaceScopes {
 		return nil
 	}
 
-	if module != "" && entity != "" && len(userModuleEntityRole) > 0 {
-		for _, r := range userModuleEntityRole {
-			if r.Module.ID == module && r.Entity.ID == entity {
+	if namespace != "" && scope != "" && len(principalNamespaceScopeRole) > 0 {
+		for _, r := range principalNamespaceScopeRole {
+			if r.Namespace.ID == namespace && r.Scope.ID == scope {
 				allowedRoles = append(allowedRoles, r.RoleID)
 			}
 		}
 	}
 
 	for _, role := range allowedRoles {
-		if _, ok := userRoles.Tenant.Roles.Get(role); !ok {
+		if _, ok := principalRoles.Tenant.Roles.Get(role); !ok {
 			return nil
 		}
 	}

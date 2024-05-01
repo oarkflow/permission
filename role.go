@@ -25,7 +25,7 @@ type AttributeGroup struct {
 	permissions maps.IMap[string, Attribute]
 }
 
-// Role represents a user role with its permissions
+// Role represents a principal role with its permissions
 type Role struct {
 	ID          string
 	lock        bool
