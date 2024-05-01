@@ -200,7 +200,7 @@ func (u *RoleManager) GetPrincipalRolesByTenant(tenant string) []*PrincipalRole 
 	return principalRoles.Roles
 }
 
-func (u *RoleManager) GetPrincipalRoleByTenantAndPrincipal(tenant, principalID string) (ut []*PrincipalRole) {
+func (u *RoleManager) GetRolesForPrincipalByTenant(tenant, principalID string) (ut []*PrincipalRole) {
 	principalRoles, ok := u.tenantPrincipals.Get(tenant)
 	if !ok {
 		return
