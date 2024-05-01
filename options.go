@@ -6,7 +6,6 @@ type Option struct {
 	scope         string
 	resourceGroup string
 	activity      string
-	manager       *RoleManager
 }
 
 func WithTenant(tenant string) func(*Option) {
@@ -36,11 +35,5 @@ func WithResourceGroup(resourceGroup string) func(*Option) {
 func WithActivity(activity string) func(*Option) {
 	return func(s *Option) {
 		s.activity = activity
-	}
-}
-
-func WithManager(manager *RoleManager) func(*Option) {
-	return func(s *Option) {
-		s.manager = manager
 	}
 }

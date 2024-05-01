@@ -160,12 +160,10 @@ func (c *Tenant) AssignScopesWithRole(principalID, roleId string, scopes ...stri
 }
 
 type Namespace struct {
-	ID      string
-	Roles   maps.IMap[string, *Role]
-	Scopes  maps.IMap[string, *Scope]
-	manager *RoleManager
+	ID     string
+	Roles  maps.IMap[string, *Role]
+	Scopes maps.IMap[string, *Scope]
 }
 type Scope struct {
-	ID      string
-	manager *RoleManager
+	ID string
 }

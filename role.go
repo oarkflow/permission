@@ -31,7 +31,6 @@ type Role struct {
 	lock        bool
 	permissions maps.IMap[string, *AttributeResourceGroup]
 	descendants maps.IMap[string, *Role]
-	manager     *RoleManager
 }
 
 func (r *Role) Lock() {

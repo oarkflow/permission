@@ -6,21 +6,9 @@ import (
 	"github.com/oarkflow/maps"
 )
 
-var roleManager *RoleManager
-
-func init() {
-	roleManager = New()
-}
-
-// Principal represents a principal with a role
+// Principal represents a user with a role
 type Principal struct {
-	ID      string
-	manager *RoleManager
-}
-
-// Can check if a principal is allowed to do an activity based on their role and inherited permissions
-func (u *Principal) Can(options ...func(*Option)) bool {
-	return Can(u.ID, options...)
+	ID string
 }
 
 type PrincipalRole struct {
@@ -59,8 +47,9 @@ func New() *RoleManager {
 	}
 }
 
-func (u *RoleManager) AddRole(role *Role) {
+func (u *RoleManager) AddRole(role *Role) *Role {
 	u.roles.Set(role.ID, role)
+	return role
 }
 
 func (u *RoleManager) GetRole(role string) (*Role, bool) {
@@ -71,8 +60,10 @@ func (u *RoleManager) Roles() map[string]*Role {
 	return u.roles.AsMap()
 }
 
-func (u *RoleManager) AddTenant(data *Tenant) {
+func (u *RoleManager) AddTenant(data *Tenant) *Tenant {
+	data.manager = u
 	u.tenants.Set(data.ID, data)
+	return data
 }
 
 func (u *RoleManager) GetTenant(id string) (*Tenant, bool) {
@@ -83,8 +74,9 @@ func (u *RoleManager) Tenants() map[string]*Tenant {
 	return u.tenants.AsMap()
 }
 
-func (u *RoleManager) AddNamespace(data *Namespace) {
+func (u *RoleManager) AddNamespace(data *Namespace) *Namespace {
 	u.namespaces.Set(data.ID, data)
+	return data
 }
 
 func (u *RoleManager) GetNamespace(id string) (*Namespace, bool) {
@@ -95,8 +87,9 @@ func (u *RoleManager) Namespaces() map[string]*Namespace {
 	return u.namespaces.AsMap()
 }
 
-func (u *RoleManager) AddPrincipal(data *Principal) {
+func (u *RoleManager) AddPrincipal(data *Principal) *Principal {
 	u.principals.Set(data.ID, data)
+	return data
 }
 
 func (u *RoleManager) GetPrincipal(id string) (*Principal, bool) {
@@ -107,8 +100,9 @@ func (u *RoleManager) Principals() map[string]*Principal {
 	return u.principals.AsMap()
 }
 
-func (u *RoleManager) AddScope(data *Scope) {
+func (u *RoleManager) AddScope(data *Scope) *Scope {
 	u.scopes.Set(data.ID, data)
+	return data
 }
 
 func (u *RoleManager) GetScope(id string) (*Scope, bool) {
@@ -277,6 +271,43 @@ func (u *RoleManager) GetAllowedRoles(principalRoles *TenantPrincipal, namespace
 	return slices.Compact(allowedRoles)
 }
 
-func DefaultRoleManager() *RoleManager {
-	return roleManager
+func (u *RoleManager) Authorize(principalID string, options ...func(*Option)) bool {
+	svr := &Option{}
+	for _, o := range options {
+		o(svr)
+	}
+	_, exists := u.GetPrincipal(principalID)
+	if !exists {
+		return false
+	}
+
+	if svr.tenant == "" {
+		return false
+	}
+	_, exists = u.GetTenant(svr.tenant)
+	if !exists {
+		return false
+	}
+	var allowed []string
+	tenantPrincipal := u.GetPrincipalRoles(svr.tenant, principalID)
+	if tenantPrincipal == nil {
+		return false
+	}
+	var principalRoles []*Role
+	roles := u.GetAllowedRoles(tenantPrincipal, svr.namespace, svr.scope)
+	tenantPrincipal.Tenant.Roles.ForEach(func(_ string, r *Role) bool {
+		for _, rt := range roles {
+			if r.ID == rt {
+				principalRoles = append(principalRoles, r)
+			}
+		}
+		allowed = append(allowed, r.ID)
+		return true
+	})
+	for _, role := range principalRoles {
+		if role.Has(svr.resourceGroup, svr.activity, allowed...) {
+			return true
+		}
+	}
+	return false
 }
