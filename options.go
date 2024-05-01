@@ -1,12 +1,12 @@
 package permission
 
 type Option struct {
-	tenant    string
-	namespace string
-	scope     string
-	group     string
-	activity  string
-	manager   *RoleManager
+	tenant        string
+	namespace     string
+	scope         string
+	resourceGroup string
+	activity      string
+	manager       *RoleManager
 }
 
 func WithTenant(tenant string) func(*Option) {
@@ -27,9 +27,9 @@ func WithScope(scope string) func(*Option) {
 	}
 }
 
-func WithGroup(group string) func(*Option) {
+func WithResourceGroup(resourceGroup string) func(*Option) {
 	return func(s *Option) {
-		s.group = group
+		s.resourceGroup = resourceGroup
 	}
 }
 

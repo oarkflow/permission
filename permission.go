@@ -39,7 +39,7 @@ func Can(principalID string, options ...func(*Option)) bool {
 		return true
 	})
 	for _, role := range principalRoles {
-		if role.Has(svr.group, svr.activity, allowed...) {
+		if role.Has(svr.resourceGroup, svr.activity, allowed...) {
 			return true
 		}
 	}
@@ -79,7 +79,7 @@ func NewScope(id string, managers ...*RoleManager) *Scope {
 func NewRole(id string, managers ...*RoleManager) *Role {
 	role := &Role{
 		ID:          id,
-		permissions: maps.New[string, *AttributeGroup](),
+		permissions: maps.New[string, *AttributeResourceGroup](),
 		descendants: maps.New[string, *Role](),
 		manager:     getRoleManager(managers...),
 	}

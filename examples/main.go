@@ -37,21 +37,21 @@ func main() {
 		permission.WithTenant("TenantA"),
 		permission.WithNamespace("NamespaceA"),
 		permission.WithScope(e29.ID),
-		permission.WithGroup("page"),
+		permission.WithResourceGroup("page"),
 		permission.WithActivity("/coding/1/2/start-coding POST"),
 	), "E:", true)
 	fmt.Println("R:", permission.Can(principalA.ID,
 		permission.WithTenant("TenantA"),
 		permission.WithNamespace("NamespaceA"),
 		permission.WithScope(e29.ID),
-		permission.WithGroup("page"),
+		permission.WithResourceGroup("page"),
 		permission.WithActivity("/coding/1/open GET"),
 	), "E:", true)
 	fmt.Println("R:", permission.Can(principalA.ID,
 		permission.WithTenant("TenantA"),
 		permission.WithNamespace("NamespaceA"),
 		permission.WithScope(e29.ID),
-		permission.WithGroup("backend"),
+		permission.WithResourceGroup("backend"),
 		permission.WithActivity("/coding/1/2/start-coding POST"),
 	), "E:", false)
 }
