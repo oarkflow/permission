@@ -52,6 +52,12 @@ func (u *RoleManager) AddRole(role *Role) *Role {
 	return role
 }
 
+func (u *RoleManager) AddRoles(roles ...*Role) {
+	for _, role := range roles {
+		u.AddRole(role)
+	}
+}
+
 func (u *RoleManager) GetRole(role string) (*Role, bool) {
 	return u.roles.Get(role)
 }
@@ -64,6 +70,12 @@ func (u *RoleManager) AddTenant(data *Tenant) *Tenant {
 	data.manager = u
 	u.tenants.Set(data.ID, data)
 	return data
+}
+
+func (u *RoleManager) AddTenants(tenants ...*Tenant) {
+	for _, data := range tenants {
+		u.AddTenant(data)
+	}
 }
 
 func (u *RoleManager) GetTenant(id string) (*Tenant, bool) {
@@ -79,6 +91,12 @@ func (u *RoleManager) AddNamespace(data *Namespace) *Namespace {
 	return data
 }
 
+func (u *RoleManager) AddNamespaces(nms ...*Namespace) {
+	for _, data := range nms {
+		u.AddNamespace(data)
+	}
+}
+
 func (u *RoleManager) GetNamespace(id string) (*Namespace, bool) {
 	return u.namespaces.Get(id)
 }
@@ -92,6 +110,12 @@ func (u *RoleManager) AddPrincipal(data *Principal) *Principal {
 	return data
 }
 
+func (u *RoleManager) AddPrincipals(principals ...*Principal) {
+	for _, data := range principals {
+		u.AddPrincipal(data)
+	}
+}
+
 func (u *RoleManager) GetPrincipal(id string) (*Principal, bool) {
 	return u.principals.Get(id)
 }
@@ -103,6 +127,12 @@ func (u *RoleManager) Principals() map[string]*Principal {
 func (u *RoleManager) AddScope(data *Scope) *Scope {
 	u.scopes.Set(data.ID, data)
 	return data
+}
+
+func (u *RoleManager) AddScopes(scopes ...*Scope) {
+	for _, data := range scopes {
+		u.AddScope(data)
+	}
 }
 
 func (u *RoleManager) GetScope(id string) (*Scope, bool) {

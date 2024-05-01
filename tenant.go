@@ -91,11 +91,13 @@ func (c *Tenant) AddPrincipalRole(principalID string, roleID string, tenant *Ten
 	c.manager.AddPrincipalRole(principalID, roleID, tenant, namespace, scope, canManageDescendants...)
 }
 
-func (c *Tenant) AddPrincipal(principal, role string) {
-	if _, ok := c.Roles.Get(role); ok {
-		c.AddPrincipalRole(principal, role, c, nil, nil)
-		if c.defaultNamespace != nil {
-			c.AddPrincipalRole(principal, role, c, c.defaultNamespace, nil)
+func (c *Tenant) AddPrincipal(principal string, roles ...string) {
+	for _, role := range roles {
+		if _, ok := c.Roles.Get(role); ok {
+			c.AddPrincipalRole(principal, role, c, nil, nil)
+			if c.defaultNamespace != nil {
+				c.AddPrincipalRole(principal, role, c, c.defaultNamespace, nil)
+			}
 		}
 	}
 }

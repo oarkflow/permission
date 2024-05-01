@@ -32,27 +32,29 @@ func main() {
 	tenant.AssignScopesToPrincipal(principalB.ID, e30.ID)
 	tenant.AssignScopesToPrincipal(principalC.ID, e33.ID)
 
-	fmt.Println("R:", authorizer.Authorize(principalA.ID,
-		permission.WithTenant("TenantA"),
-		permission.WithNamespace("NamespaceA"),
-		permission.WithScope(e29.ID),
-		permission.WithResourceGroup("page"),
-		permission.WithActivity("/coding/1/2/start-coding POST"),
-	), "E:", true)
-	fmt.Println("R:", authorizer.Authorize(principalA.ID,
-		permission.WithTenant("TenantA"),
-		permission.WithNamespace("NamespaceA"),
-		permission.WithScope(e29.ID),
-		permission.WithResourceGroup("page"),
-		permission.WithActivity("/coding/1/open GET"),
-	), "E:", true)
-	fmt.Println("R:", authorizer.Authorize(principalA.ID,
-		permission.WithTenant("TenantA"),
-		permission.WithNamespace("NamespaceA"),
-		permission.WithScope(e29.ID),
-		permission.WithResourceGroup("backend"),
-		permission.WithActivity("/coding/1/2/start-coding POST"),
-	), "E:", false)
+	{
+		fmt.Println("R:", authorizer.Authorize(principalA.ID,
+			permission.WithTenant("TenantA"),
+			permission.WithNamespace("NamespaceA"),
+			permission.WithScope(e29.ID),
+			permission.WithResourceGroup("page"),
+			permission.WithActivity("/coding/1/2/start-coding POST"),
+		), "E:", true)
+		fmt.Println("R:", authorizer.Authorize(principalA.ID,
+			permission.WithTenant("TenantA"),
+			permission.WithNamespace("NamespaceA"),
+			permission.WithScope(e29.ID),
+			permission.WithResourceGroup("page"),
+			permission.WithActivity("/coding/1/open GET"),
+		), "E:", true)
+		fmt.Println("R:", authorizer.Authorize(principalA.ID,
+			permission.WithTenant("TenantA"),
+			permission.WithNamespace("NamespaceA"),
+			permission.WithScope(e29.ID),
+			permission.WithResourceGroup("backend"),
+			permission.WithActivity("/coding/1/2/start-coding POST"),
+		), "E:", false)
+	}
 }
 
 func myRoles(authorizer *permission.RoleManager) (coder *permission.Role, qa *permission.Role, suspendManager *permission.Role, admin *permission.Role) {
