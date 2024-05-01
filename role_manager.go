@@ -168,14 +168,6 @@ func (u *RoleManager) AddPrincipalRole(principalID string, roleID string, tenant
 	u.tenantPrincipals.Set(tenant.ID, tenantPrincipal)
 }
 
-func (u *RoleManager) GetTenantPrincipalRoles(tenant string) *TenantPrincipal {
-	principalRoles, ok := u.tenantPrincipals.Get(tenant)
-	if !ok {
-		return nil
-	}
-	return principalRoles
-}
-
 func (u *RoleManager) GetPrincipalRoles(tenant, principalID string) *TenantPrincipal {
 	principalRoles, ok := u.tenantPrincipals.Get(tenant)
 	if !ok {
