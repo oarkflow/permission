@@ -86,11 +86,14 @@ func NewRole(id string, managers ...*RoleManager) *Role {
 	role.manager.AddRole(role)
 	return role
 }
-func NewAttribute(resource, action string) Attribute {
-	return Attribute{
-		Resource: resource,
-		Action:   action,
+func NewAttribute(resource string, actions ...string) (attrs []Attribute) {
+	for _, action := range actions {
+		attrs = append(attrs, Attribute{
+			Resource: resource,
+			Action:   action,
+		})
 	}
+	return
 }
 func NewPrincipal(id string, managers ...*RoleManager) *Principal {
 	principal := &Principal{
