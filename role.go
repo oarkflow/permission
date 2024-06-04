@@ -94,7 +94,7 @@ func (r *Role) AddDescendent(descendants ...*Role) error {
 		return errors.New("changes not allowed")
 	}
 	for _, descendant := range descendants {
-		r.descendants.Set(descendant.ID, descendant)
+		r.descendants.GetOrSet(descendant.ID, descendant)
 	}
 	return nil
 }
@@ -112,9 +112,9 @@ func (r *Role) AddPermission(resourceGroup string, permissions ...Attribute) err
 		}
 	}
 	for _, permission := range permissions {
-		resourceGroupAttributes.permissions.Set(permission.String(), permission)
+		resourceGroupAttributes.permissions.GetOrSet(permission.String(), permission)
 	}
-	r.permissions.Set(resourceGroup, resourceGroupAttributes)
+	r.permissions.GetOrSet(resourceGroup, resourceGroupAttributes)
 	return nil
 }
 
@@ -122,7 +122,7 @@ func (r *Role) AddPermissionResourceGroup(resourceGroup *AttributeResourceGroup)
 	if r.lock {
 		return errors.New("changes not allowed")
 	}
-	r.permissions.Set(resourceGroup.ID, resourceGroup)
+	r.permissions.GetOrSet(resourceGroup.ID, resourceGroup)
 	return nil
 }
 

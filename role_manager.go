@@ -48,7 +48,7 @@ func New() *RoleManager {
 }
 
 func (u *RoleManager) AddRole(role *Role) *Role {
-	u.roles.Set(role.ID, role)
+	u.roles.GetOrSet(role.ID, role)
 	return role
 }
 
@@ -68,7 +68,7 @@ func (u *RoleManager) Roles() map[string]*Role {
 
 func (u *RoleManager) AddTenant(data *Tenant) *Tenant {
 	data.manager = u
-	u.tenants.Set(data.ID, data)
+	u.tenants.GetOrSet(data.ID, data)
 	return data
 }
 
@@ -87,7 +87,7 @@ func (u *RoleManager) Tenants() map[string]*Tenant {
 }
 
 func (u *RoleManager) AddNamespace(data *Namespace) *Namespace {
-	u.namespaces.Set(data.ID, data)
+	u.namespaces.GetOrSet(data.ID, data)
 	return data
 }
 
@@ -106,7 +106,7 @@ func (u *RoleManager) Namespaces() map[string]*Namespace {
 }
 
 func (u *RoleManager) AddPrincipal(data *Principal) *Principal {
-	u.principals.Set(data.ID, data)
+	u.principals.GetOrSet(data.ID, data)
 	return data
 }
 
@@ -125,7 +125,7 @@ func (u *RoleManager) Principals() map[string]*Principal {
 }
 
 func (u *RoleManager) AddScope(data *Scope) *Scope {
-	u.scopes.Set(data.ID, data)
+	u.scopes.GetOrSet(data.ID, data)
 	return data
 }
 
@@ -165,7 +165,7 @@ func (u *RoleManager) AddPrincipalRole(principalID string, roleID string, tenant
 		}
 	}
 	tenantPrincipal.Roles = append(tenantPrincipal.Roles, role)
-	u.tenantPrincipals.Set(tenant.ID, tenantPrincipal)
+	u.tenantPrincipals.GetOrSet(tenant.ID, tenantPrincipal)
 }
 
 func (u *RoleManager) GetPrincipalRoles(tenant, principalID string) *TenantPrincipal {

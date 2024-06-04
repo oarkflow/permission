@@ -27,7 +27,7 @@ func (c *Tenant) GetDescendantTenants() []*Tenant {
 // AddDescendent adds a new permission to the role
 func (c *Tenant) AddDescendent(descendants ...*Tenant) error {
 	for _, descendant := range descendants {
-		c.descendants.Set(descendant.ID, descendant)
+		c.descendants.GetOrSet(descendant.ID, descendant)
 	}
 	return nil
 }
@@ -40,21 +40,21 @@ func (c *Tenant) SetDefaultNamespace(namespace string) {
 
 func (c *Tenant) AddNamespace(namespaces ...*Namespace) {
 	for _, namespace := range namespaces {
-		c.Namespaces.Set(namespace.ID, namespace)
+		c.Namespaces.GetOrSet(namespace.ID, namespace)
 	}
 }
 
 func (c *Tenant) AddRole(roles ...*Role) {
 	for _, role := range roles {
-		c.Roles.Set(role.ID, role)
+		c.Roles.GetOrSet(role.ID, role)
 	}
 }
 
 func (c *Tenant) AddScopes(scopes ...*Scope) {
 	for _, scope := range scopes {
-		c.Scopes.Set(scope.ID, scope)
+		c.Scopes.GetOrSet(scope.ID, scope)
 		if c.defaultNamespace != nil {
-			c.defaultNamespace.Scopes.Set(scope.ID, scope)
+			c.defaultNamespace.Scopes.GetOrSet(scope.ID, scope)
 		}
 	}
 }
@@ -66,7 +66,7 @@ func (c *Tenant) AddScopesToNamespace(namespace string, scopes ...string) {
 			return
 		}
 		if mod, ok := c.Namespaces.Get(namespace); ok {
-			mod.Scopes.Set(id, scope)
+			mod.Scopes.GetOrSet(id, scope)
 		} else {
 			return
 		}
@@ -80,7 +80,7 @@ func (c *Tenant) AddRolesToNamespace(namespace string, roles ...string) {
 			return
 		}
 		if mod, ok := c.Namespaces.Get(namespace); ok {
-			mod.Roles.Set(id, role)
+			mod.Roles.GetOrSet(id, role)
 		} else {
 			return
 		}
