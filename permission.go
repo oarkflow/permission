@@ -36,9 +36,9 @@ func NewRole(id string) *Role {
 	}
 	return role
 }
-func NewAttribute(resource string, actions ...string) (attrs []Attribute) {
+func NewAttribute(resource string, actions ...string) (attrs []*Attribute) {
 	for _, action := range actions {
-		attrs = append(attrs, Attribute{
+		attrs = append(attrs, &Attribute{
 			Resource: resource,
 			Action:   action,
 		})

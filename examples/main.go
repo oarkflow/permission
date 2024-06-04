@@ -59,7 +59,7 @@ func main() {
 
 func myRoles(authorizer *permission.RoleManager) (coder *permission.Role, qa *permission.Role, suspendManager *permission.Role, admin *permission.Role) {
 	coder = authorizer.AddRole(permission.NewRole("coder"))
-	perm := []permission.Attribute{
+	perm := []*permission.Attribute{
 		{"/coding/:wid/:eid/start-coding", "POST"},
 		{"/coding/:wid/open", "GET"},
 		{"/coding/:wid/in-progress", "GET"},
@@ -68,7 +68,7 @@ func myRoles(authorizer *permission.RoleManager) (coder *permission.Role, qa *pe
 	coder.AddPermission("page", perm...)
 
 	qa = authorizer.AddRole(permission.NewRole("qa"))
-	perm = []permission.Attribute{
+	perm = []*permission.Attribute{
 		{"/coding/:wid/:eid/start-qa", "POST"},
 		{"/coding/:wid/qa", "GET"},
 		{"/coding/:wid/qa-in-progress", "GET"},
@@ -77,7 +77,7 @@ func myRoles(authorizer *permission.RoleManager) (coder *permission.Role, qa *pe
 	qa.AddPermission("page", perm...)
 
 	suspendManager = authorizer.AddRole(permission.NewRole("suspend-manager"))
-	perm = []permission.Attribute{
+	perm = []*permission.Attribute{
 		{"/coding/:wid/suspended", "GET"},
 		{"/coding/:wid/:eid/release-suspend", "POST"},
 		{"/coding/:wid/:eid/request-abandon", "POST"},
@@ -85,7 +85,7 @@ func myRoles(authorizer *permission.RoleManager) (coder *permission.Role, qa *pe
 	suspendManager.AddPermission("page", perm...)
 
 	admin = authorizer.AddRole(permission.NewRole("admin"))
-	perm = []permission.Attribute{
+	perm = []*permission.Attribute{
 		{"/admin/principal/add", "POST"},
 		{"/admin/principal/edit", "PUT"},
 	}

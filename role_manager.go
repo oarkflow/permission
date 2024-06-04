@@ -34,6 +34,7 @@ type RoleManager struct {
 	principals       maps.IMap[string, *Principal]
 	roles            maps.IMap[string, *Role]
 	tenantPrincipals maps.IMap[string, *TenantPrincipal]
+	attributes       maps.IMap[string, *Attribute]
 }
 
 func New() *RoleManager {
@@ -44,7 +45,23 @@ func New() *RoleManager {
 		principals:       maps.New[string, *Principal](),
 		roles:            maps.New[string, *Role](),
 		tenantPrincipals: maps.New[string, *TenantPrincipal](),
+		attributes:       maps.New[string, *Attribute](),
 	}
+}
+
+func (u *RoleManager) AddAttribute(attr *Attribute) *Attribute {
+	u.attributes.GetOrSet(attr.String(), attr)
+	return attr
+}
+
+func (u *RoleManager) AddAttributes(attrs ...*Attribute) {
+	for _, attr := range attrs {
+		u.AddAttributes(attr)
+	}
+}
+
+func (u *RoleManager) GetAttribute(attr string) (*Attribute, bool) {
+	return u.attributes.Get(attr)
 }
 
 func (u *RoleManager) AddRole(role *Role) *Role {

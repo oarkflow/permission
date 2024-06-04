@@ -22,7 +22,7 @@ func (a Attribute) String(delimiter ...string) string {
 
 type AttributeResourceGroup struct {
 	ID          string
-	permissions maps.IMap[string, Attribute]
+	permissions maps.IMap[string, *Attribute]
 }
 
 // Role represents a principal role with its permissions
@@ -50,7 +50,7 @@ func (r *Role) Has(resourceGroup, permissionName string, allowedDescendants ...s
 		return true
 	}
 	matched := false
-	resourceGroupPermissions.permissions.ForEach(func(perm string, _ Attribute) bool {
+	resourceGroupPermissions.permissions.ForEach(func(perm string, _ *Attribute) bool {
 		if MatchResource(permissionName, perm) {
 			matched = true
 			return false
@@ -100,7 +100,7 @@ func (r *Role) AddDescendent(descendants ...*Role) error {
 }
 
 // AddPermission adds a new permission to the role
-func (r *Role) AddPermission(resourceGroup string, permissions ...Attribute) error {
+func (r *Role) AddPermission(resourceGroup string, permissions ...*Attribute) error {
 	if r.lock {
 		return errors.New("changes not allowed")
 	}
@@ -108,7 +108,7 @@ func (r *Role) AddPermission(resourceGroup string, permissions ...Attribute) err
 	if !exists || resourceGroupAttributes == nil {
 		resourceGroupAttributes = &AttributeResourceGroup{
 			ID:          resourceGroup,
-			permissions: maps.New[string, Attribute](),
+			permissions: maps.New[string, *Attribute](),
 		}
 	}
 	for _, permission := range permissions {
@@ -126,9 +126,9 @@ func (r *Role) AddPermissionResourceGroup(resourceGroup *AttributeResourceGroup)
 	return nil
 }
 
-func (r *Role) GetResourceGroupPermissions(resourceGroup string) (permissions []Attribute) {
+func (r *Role) GetResourceGroupPermissions(resourceGroup string) (permissions []*Attribute) {
 	if grp, exists := r.permissions.Get(resourceGroup); exists {
-		grp.permissions.ForEach(func(_ string, attr Attribute) bool {
+		grp.permissions.ForEach(func(_ string, attr *Attribute) bool {
 			permissions = append(permissions, attr)
 			return true
 		})
@@ -136,16 +136,16 @@ func (r *Role) GetResourceGroupPermissions(resourceGroup string) (permissions []
 	return
 }
 
-func (r *Role) GetAllImplicitPermissions(perm ...map[string][]Attribute) map[string][]Attribute {
-	var grpPermissions map[string][]Attribute
+func (r *Role) GetAllImplicitPermissions(perm ...map[string][]*Attribute) map[string][]*Attribute {
+	var grpPermissions map[string][]*Attribute
 	if len(perm) > 0 {
 		grpPermissions = perm[0]
 	} else {
-		grpPermissions = make(map[string][]Attribute)
+		grpPermissions = make(map[string][]*Attribute)
 	}
 	r.permissions.ForEach(func(resourceGroup string, grp *AttributeResourceGroup) bool {
-		var permissions []Attribute
-		grp.permissions.ForEach(func(_ string, attr Attribute) bool {
+		var permissions []*Attribute
+		grp.permissions.ForEach(func(_ string, attr *Attribute) bool {
 			permissions = append(permissions, attr)
 			return true
 		})
@@ -158,11 +158,11 @@ func (r *Role) GetAllImplicitPermissions(perm ...map[string][]Attribute) map[str
 	return grpPermissions
 }
 
-func (r *Role) GetPermissions() map[string][]Attribute {
-	grpPermissions := make(map[string][]Attribute)
+func (r *Role) GetPermissions() map[string][]*Attribute {
+	grpPermissions := make(map[string][]*Attribute)
 	r.permissions.ForEach(func(resourceGroup string, grp *AttributeResourceGroup) bool {
-		var permissions []Attribute
-		grp.permissions.ForEach(func(_ string, attr Attribute) bool {
+		var permissions []*Attribute
+		grp.permissions.ForEach(func(_ string, attr *Attribute) bool {
 			permissions = append(permissions, attr)
 			return true
 		})
