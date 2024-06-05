@@ -6,29 +6,29 @@ import (
 
 func NewTenant(id string) *Tenant {
 	return &Tenant{
-		ID:          id,
-		Namespaces:  maps.New[string, *Namespace](),
-		Roles:       maps.New[string, *Role](),
-		Scopes:      maps.New[string, *Scope](),
+		id:          id,
+		namespaces:  maps.New[string, *Namespace](),
+		roles:       maps.New[string, *Role](),
+		scopes:      maps.New[string, *Scope](),
 		descendants: maps.New[string, *Tenant](),
 	}
 }
 func NewNamespace(id string) *Namespace {
 	return &Namespace{
-		ID:     id,
-		Roles:  maps.New[string, *Role](),
-		Scopes: maps.New[string, *Scope](),
+		id:     id,
+		roles:  maps.New[string, *Role](),
+		scopes: maps.New[string, *Scope](),
 	}
 }
 func NewScope(id string) *Scope {
 	return &Scope{
-		ID: id,
+		id: id,
 	}
 }
 
 func NewRole(id string) *Role {
 	return &Role{
-		ID:          id,
+		id:          id,
 		permissions: maps.New[string, *AttributeGroup](),
 		descendants: maps.New[string, *Role](),
 	}
@@ -36,22 +36,26 @@ func NewRole(id string) *Role {
 
 func NewAttributeGroup(id string) *AttributeGroup {
 	return &AttributeGroup{
-		ID:          id,
+		id:          id,
 		permissions: maps.New[string, *Attribute](),
 	}
 }
 
-func NewAttribute(resource string, actions ...string) (attrs []*Attribute) {
+func NewAttributes(resource string, actions ...string) (attrs []*Attribute) {
 	for _, action := range actions {
-		attrs = append(attrs, &Attribute{
-			Resource: resource,
-			Action:   action,
-		})
+		attrs = append(attrs, NewAttribute(resource, action))
 	}
 	return
 }
+
+func NewAttribute(resource string, action string) *Attribute {
+	return &Attribute{
+		resource: resource,
+		action:   action,
+	}
+}
 func NewPrincipal(id string) *Principal {
 	return &Principal{
-		ID: id,
+		id: id,
 	}
 }

@@ -42,9 +42,9 @@ func main() {
 	tenant.AssignScopesToPrincipal(principalA.ID, e29.ID)
 	tenant.AssignScopesToPrincipal(principalB.ID, e30.ID)
 	tenant.AssignScopesToPrincipal(principalC.ID, e33.ID)
-	fmt.Println("R:", permission.Can(principalA.ID, "TenantA", "NamespaceA", e29.ID, "route", "/coding/1/2/start-coding POST"), "E:", true)
-	fmt.Println("R:", permission.Can(principalA.ID, "TenantA", "NamespaceA", e29.ID, "route", "/coding/1/open GET"), "E:", true)
-	fmt.Println("R:", permission.Can(principalA.ID, "TenantA", "NamespaceA", e29.ID, "backend", "/coding/1/2/start-coding POST"), "E:", false)
+	fmt.Println("R:", permission.Authorize(principalA.ID, "TenantA", "NamespaceA", e29.ID, "route", "/coding/1/2/start-coding POST"), "E:", true)
+	fmt.Println("R:", permission.Authorize(principalA.ID, "TenantA", "NamespaceA", e29.ID, "route", "/coding/1/open GET"), "E:", true)
+	fmt.Println("R:", permission.Authorize(principalA.ID, "TenantA", "NamespaceA", e29.ID, "backend", "/coding/1/2/start-coding POST"), "E:", false)
 }
 
 func myRoles() (coder *permission.Role, qa *permission.Role, suspendManager *permission.Role, admin *permission.Role) {

@@ -2,10 +2,10 @@ package permission
 
 type Option struct {
 	tenant        string
-	namespace     string
-	scope         string
-	resourceGroup string
-	activity      string
+	namespace     any
+	scope         any
+	resourceGroup any
+	activity      any
 }
 
 func WithTenant(tenant string) func(*Option) {
@@ -14,25 +14,25 @@ func WithTenant(tenant string) func(*Option) {
 	}
 }
 
-func WithNamespace(namespace string) func(*Option) {
+func WithNamespace(namespace any) func(*Option) {
 	return func(s *Option) {
 		s.namespace = namespace
 	}
 }
 
-func WithScope(scope string) func(*Option) {
+func WithScope(scope any) func(*Option) {
 	return func(s *Option) {
 		s.scope = scope
 	}
 }
 
-func WithResourceGroup(resourceGroup string) func(*Option) {
+func WithResourceGroup(resourceGroup any) func(*Option) {
 	return func(s *Option) {
 		s.resourceGroup = resourceGroup
 	}
 }
 
-func WithActivity(activity string) func(*Option) {
+func WithActivity(activity any) func(*Option) {
 	return func(s *Option) {
 		s.activity = activity
 	}

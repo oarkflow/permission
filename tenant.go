@@ -5,13 +5,17 @@ import (
 )
 
 type Tenant struct {
-	Namespaces       maps.IMap[string, *Namespace]
-	Roles            maps.IMap[string, *Role]
-	Scopes           maps.IMap[string, *Scope]
+	namespaces       maps.IMap[string, *Namespace]
+	roles            maps.IMap[string, *Role]
+	scopes           maps.IMap[string, *Scope]
 	descendants      maps.IMap[string, *Tenant]
 	defaultNamespace *Namespace
 	manager          *RoleManager
-	ID               string
+	id               string
+}
+
+func (c *Tenant) ID() string {
+	return c.id
 }
 
 func (c *Tenant) GetDescendantTenants() []*Tenant {
@@ -27,46 +31,58 @@ func (c *Tenant) GetDescendantTenants() []*Tenant {
 // AddDescendent adds a new permission to the role
 func (c *Tenant) AddDescendent(descendants ...*Tenant) error {
 	for _, descendant := range descendants {
-		c.descendants.GetOrSet(descendant.ID, descendant)
+		if _, ok := c.descendants.Get(descendant.id); !ok {
+			c.descendants.Set(descendant.id, descendant)
+		}
 	}
 	return nil
 }
 
 func (c *Tenant) SetDefaultNamespace(namespace string) {
-	if mod, ok := c.Namespaces.Get(namespace); ok {
+	if mod, ok := c.namespaces.Get(namespace); ok {
 		c.defaultNamespace = mod
 	}
 }
 
 func (c *Tenant) AddNamespace(namespaces ...*Namespace) {
 	for _, namespace := range namespaces {
-		c.Namespaces.GetOrSet(namespace.ID, namespace)
+		if _, ok := c.namespaces.Get(namespace.id); !ok {
+			c.namespaces.Set(namespace.id, namespace)
+		}
 	}
 }
 
 func (c *Tenant) AddRole(roles ...*Role) {
 	for _, role := range roles {
-		c.Roles.GetOrSet(role.ID, role)
+		if _, ok := c.roles.Get(role.id); !ok {
+			c.roles.Set(role.id, role)
+		}
 	}
 }
 
 func (c *Tenant) AddScopes(scopes ...*Scope) {
 	for _, scope := range scopes {
-		c.Scopes.GetOrSet(scope.ID, scope)
+		if _, ok := c.scopes.Get(scope.id); !ok {
+			c.scopes.Set(scope.id, scope)
+		}
 		if c.defaultNamespace != nil {
-			c.defaultNamespace.Scopes.GetOrSet(scope.ID, scope)
+			if _, ok := c.defaultNamespace.scopes.Get(scope.id); !ok {
+				c.defaultNamespace.scopes.Set(scope.id, scope)
+			}
 		}
 	}
 }
 
 func (c *Tenant) AddScopesToNamespace(namespace string, scopes ...string) {
 	for _, id := range scopes {
-		scope, exists := c.Scopes.Get(id)
+		scope, exists := c.scopes.Get(id)
 		if !exists {
 			return
 		}
-		if mod, ok := c.Namespaces.Get(namespace); ok {
-			mod.Scopes.GetOrSet(id, scope)
+		if mod, ok := c.namespaces.Get(namespace); ok {
+			if _, ok = mod.scopes.Get(id); !ok {
+				mod.scopes.Set(id, scope)
+			}
 		} else {
 			return
 		}
@@ -75,12 +91,14 @@ func (c *Tenant) AddScopesToNamespace(namespace string, scopes ...string) {
 
 func (c *Tenant) AddRolesToNamespace(namespace string, roles ...string) {
 	for _, id := range roles {
-		role, exists := c.Roles.Get(id)
+		role, exists := c.roles.Get(id)
 		if !exists {
 			return
 		}
-		if mod, ok := c.Namespaces.Get(namespace); ok {
-			mod.Roles.GetOrSet(id, role)
+		if mod, ok := c.namespaces.Get(namespace); ok {
+			if _, ok = mod.roles.Get(id); !ok {
+				mod.roles.Set(id, role)
+			}
 		} else {
 			return
 		}
@@ -93,7 +111,7 @@ func (c *Tenant) AddPrincipalRole(principalID string, roleID string, tenant *Ten
 
 func (c *Tenant) AddPrincipal(principal string, roles ...string) {
 	for _, role := range roles {
-		if _, ok := c.Roles.Get(role); ok {
+		if _, ok := c.roles.Get(role); ok {
 			c.AddPrincipalRole(principal, role, c, nil, nil)
 			if c.defaultNamespace != nil {
 				c.AddPrincipalRole(principal, role, c, c.defaultNamespace, nil)
@@ -103,19 +121,19 @@ func (c *Tenant) AddPrincipal(principal string, roles ...string) {
 }
 
 func (c *Tenant) AddPrincipalInNamespace(principal, namespace string, roles ...string) {
-	mod, exists := c.Namespaces.Get(namespace)
+	mod, exists := c.namespaces.Get(namespace)
 	if !exists {
 		return
 	}
 	if len(roles) > 0 {
 		for _, r := range roles {
-			if role, ok := c.Roles.Get(r); ok {
-				c.AddPrincipalRole(principal, role.ID, c, mod, nil)
+			if role, ok := c.roles.Get(r); ok {
+				c.AddPrincipalRole(principal, role.id, c, mod, nil)
 			}
 		}
 	} else {
-		for _, ur := range c.manager.GetPrincipalRolesByTenant(c.ID) {
-			if ur.PrincipalID == principal && ur.Namespace != nil && ur.Namespace.ID != namespace {
+		for _, ur := range c.manager.GetPrincipalRolesByTenant(c.id) {
+			if ur.PrincipalID == principal && ur.NamespaceID != "" && ur.NamespaceID != namespace {
 				c.AddPrincipalRole(principal, ur.RoleID, c, mod, nil)
 			}
 		}
@@ -123,13 +141,13 @@ func (c *Tenant) AddPrincipalInNamespace(principal, namespace string, roles ...s
 }
 
 func (c *Tenant) AssignScopesToPrincipal(principalID string, scopes ...string) {
-	principal := c.manager.GetPrincipalRoles(c.ID, principalID)
+	principal := c.manager.GetPrincipalRoles(c.id, principalID)
 	if principal == nil {
 		return
 	}
-	for _, role := range principal.PrincipalRoles {
+	for _, role := range principal {
 		for _, id := range scopes {
-			if scope, ok := c.Scopes.Get(id); ok {
+			if scope, ok := c.scopes.Get(id); ok {
 				c.AddPrincipalRole(principalID, role.RoleID, c, nil, scope)
 				if c.defaultNamespace != nil {
 					c.AddPrincipalRole(principalID, role.RoleID, c, c.defaultNamespace, scope)
@@ -143,16 +161,16 @@ func (c *Tenant) AssignScopesWithRole(principalID, roleId string, scopes ...stri
 	if len(scopes) == 0 {
 		return
 	}
-	principal := c.manager.GetPrincipalRoles(c.ID, principalID)
+	principal := c.manager.GetPrincipalRoles(c.id, principalID)
 	if principal == nil {
 		return
 	}
-	_, ok := c.Roles.Get(roleId)
+	_, ok := c.roles.Get(roleId)
 	if !ok {
 		return
 	}
 	for _, id := range scopes {
-		if scope, ok := c.Scopes.Get(id); ok {
+		if scope, ok := c.scopes.Get(id); ok {
 			c.AddPrincipalRole(principalID, roleId, c, nil, scope)
 			if c.defaultNamespace != nil {
 				c.AddPrincipalRole(principalID, roleId, c, c.defaultNamespace, scope)
@@ -162,10 +180,31 @@ func (c *Tenant) AssignScopesWithRole(principalID, roleId string, scopes ...stri
 }
 
 type Namespace struct {
-	Roles  maps.IMap[string, *Role]
-	Scopes maps.IMap[string, *Scope]
-	ID     string
+	roles  maps.IMap[string, *Role]
+	scopes maps.IMap[string, *Scope]
+	id     string
 }
+
+func (n *Namespace) ID() string {
+	return n.id
+}
+
+func (n *Namespace) AddRoles(roles ...*Role) {
+	for _, role := range roles {
+		n.roles.Set(role.id, role)
+	}
+}
+
+func (n *Namespace) AddScopes(scopes ...*Scope) {
+	for _, scope := range scopes {
+		n.scopes.Set(scope.id, scope)
+	}
+}
+
 type Scope struct {
-	ID string
+	id string
+}
+
+func (s *Scope) ID() string {
+	return s.id
 }
