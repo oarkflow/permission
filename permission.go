@@ -5,37 +5,42 @@ import (
 )
 
 func NewTenant(id string) *Tenant {
-	tenant := &Tenant{
+	return &Tenant{
 		ID:          id,
 		Namespaces:  maps.New[string, *Namespace](),
 		Roles:       maps.New[string, *Role](),
 		Scopes:      maps.New[string, *Scope](),
 		descendants: maps.New[string, *Tenant](),
 	}
-	return tenant
 }
 func NewNamespace(id string) *Namespace {
-	namespace := &Namespace{
+	return &Namespace{
 		ID:     id,
 		Roles:  maps.New[string, *Role](),
 		Scopes: maps.New[string, *Scope](),
 	}
-	return namespace
 }
 func NewScope(id string) *Scope {
-	scope := &Scope{
+	return &Scope{
 		ID: id,
 	}
-	return scope
 }
+
 func NewRole(id string) *Role {
-	role := &Role{
+	return &Role{
 		ID:          id,
-		permissions: maps.New[string, *AttributeResourceGroup](),
+		permissions: maps.New[string, *AttributeGroup](),
 		descendants: maps.New[string, *Role](),
 	}
-	return role
 }
+
+func NewAttributeGroup(id string) *AttributeGroup {
+	return &AttributeGroup{
+		ID:          id,
+		permissions: maps.New[string, *Attribute](),
+	}
+}
+
 func NewAttribute(resource string, actions ...string) (attrs []*Attribute) {
 	for _, action := range actions {
 		attrs = append(attrs, &Attribute{
@@ -46,8 +51,7 @@ func NewAttribute(resource string, actions ...string) (attrs []*Attribute) {
 	return
 }
 func NewPrincipal(id string) *Principal {
-	principal := &Principal{
+	return &Principal{
 		ID: id,
 	}
-	return principal
 }

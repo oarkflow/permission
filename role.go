@@ -22,14 +22,20 @@ func (a Attribute) String(delimiter ...string) string {
 	return a.Resource + delim + a.Action
 }
 
-type AttributeResourceGroup struct {
+type AttributeGroup struct {
 	permissions maps.IMap[string, *Attribute]
 	ID          string
 }
 
+func (a *AttributeGroup) AddAttributes(attrs ...*Attribute) {
+	for _, attr := range attrs {
+		a.permissions.Set(attr.String(), attr)
+	}
+}
+
 // Role represents a principal role with its permissions
 type Role struct {
-	permissions maps.IMap[string, *AttributeResourceGroup]
+	permissions maps.IMap[string, *AttributeGroup]
 	descendants maps.IMap[string, *Role]
 	ID          string
 	lock        bool
@@ -108,7 +114,7 @@ func (r *Role) AddPermission(resourceGroup string, permissions ...*Attribute) er
 	}
 	resourceGroupAttributes, exists := r.permissions.Get(resourceGroup)
 	if !exists || resourceGroupAttributes == nil {
-		resourceGroupAttributes = &AttributeResourceGroup{
+		resourceGroupAttributes = &AttributeGroup{
 			ID:          resourceGroup,
 			permissions: maps.New[string, *Attribute](),
 		}
@@ -120,7 +126,7 @@ func (r *Role) AddPermission(resourceGroup string, permissions ...*Attribute) er
 	return nil
 }
 
-func (r *Role) AddPermissionResourceGroup(resourceGroup *AttributeResourceGroup) error {
+func (r *Role) AddPermissionResourceGroup(resourceGroup *AttributeGroup) error {
 	if r.lock {
 		return errors.New("changes not allowed")
 	}
@@ -145,7 +151,7 @@ func (r *Role) GetAllImplicitPermissions(perm ...map[string][]*Attribute) map[st
 	} else {
 		grpPermissions = make(map[string][]*Attribute)
 	}
-	r.permissions.ForEach(func(resourceGroup string, grp *AttributeResourceGroup) bool {
+	r.permissions.ForEach(func(resourceGroup string, grp *AttributeGroup) bool {
 		var permissions []*Attribute
 		grp.permissions.ForEach(func(_ string, attr *Attribute) bool {
 			permissions = append(permissions, attr)
@@ -162,7 +168,7 @@ func (r *Role) GetAllImplicitPermissions(perm ...map[string][]*Attribute) map[st
 
 func (r *Role) GetPermissions() map[string][]*Attribute {
 	grpPermissions := make(map[string][]*Attribute)
-	r.permissions.ForEach(func(resourceGroup string, grp *AttributeResourceGroup) bool {
+	r.permissions.ForEach(func(resourceGroup string, grp *AttributeGroup) bool {
 		var permissions []*Attribute
 		grp.permissions.ForEach(func(_ string, attr *Attribute) bool {
 			permissions = append(permissions, attr)

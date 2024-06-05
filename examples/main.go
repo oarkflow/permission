@@ -8,6 +8,7 @@ import (
 
 func main() {
 	authorizer := permission.New()
+	addAttributes(authorizer)
 	tenant := authorizer.AddTenant(permission.NewTenant("TenantA"))
 	namespace := authorizer.AddNamespace(permission.NewNamespace("NamespaceA"))
 	tenant.AddNamespace(namespace)
@@ -92,4 +93,30 @@ func myRoles(authorizer *permission.RoleManager) (coder *permission.Role, qa *pe
 	admin.AddPermission("page", perm...)
 	admin.AddDescendent(coder, qa, suspendManager)
 	return
+}
+
+func addAttributes(authorizer *permission.RoleManager) {
+	attrs := []*permission.Attribute{
+		{"/coding/:wid/:eid/start-coding", "POST"},
+		{"/coding/:wid/open", "GET"},
+		{"/coding/:wid/in-progress", "GET"},
+		{"/coding/:wid/:eid/review", "POST"},
+		{"/coding/:wid/:eid/start-qa", "POST"},
+		{"/coding/:wid/qa", "GET"},
+		{"/coding/:wid/qa-in-progress", "GET"},
+		{"/coding/:wid/:eid/qa-review", "POST"},
+		{"/coding/:wid/suspended", "GET"},
+		{"/coding/:wid/:eid/release-suspend", "POST"},
+		{"/coding/:wid/:eid/request-abandon", "POST"},
+	}
+	backendGroup := permission.NewAttributeGroup("backend")
+	backendGroup.AddAttributes(attrs...)
+
+	perm := []*permission.Attribute{
+		{"/admin/principal/add", "POST"},
+		{"/admin/principal/edit", "PUT"},
+	}
+	pageGroup := permission.NewAttributeGroup("page")
+	pageGroup.AddAttributes(perm...)
+	authorizer.AddAttributeGroups(backendGroup, pageGroup)
 }

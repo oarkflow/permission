@@ -1,6 +1,8 @@
 package permission
 
 import (
+	"errors"
+	"fmt"
 	"slices"
 
 	"github.com/oarkflow/maps"
@@ -35,6 +37,7 @@ type RoleManager struct {
 	roles            maps.IMap[string, *Role]
 	tenantPrincipals maps.IMap[string, *TenantPrincipal]
 	attributes       maps.IMap[string, *Attribute]
+	attributeGroups  maps.IMap[string, *AttributeGroup]
 }
 
 func New() *RoleManager {
@@ -46,6 +49,7 @@ func New() *RoleManager {
 		roles:            maps.New[string, *Role](),
 		tenantPrincipals: maps.New[string, *TenantPrincipal](),
 		attributes:       maps.New[string, *Attribute](),
+		attributeGroups:  maps.New[string, *AttributeGroup](),
 	}
 }
 
@@ -66,6 +70,25 @@ func (u *RoleManager) GetAttribute(attr string) (*Attribute, bool) {
 
 func (u *RoleManager) TotalAttributes() uintptr {
 	return u.attributes.Len()
+}
+
+func (u *RoleManager) AddAttributeGroup(attr *AttributeGroup) *AttributeGroup {
+	u.attributeGroups.GetOrSet(attr.ID, attr)
+	return attr
+}
+
+func (u *RoleManager) AddAttributeGroups(attrs ...*AttributeGroup) {
+	for _, attr := range attrs {
+		u.AddAttributeGroup(attr)
+	}
+}
+
+func (u *RoleManager) GetAttributeGroup(attr string) (*AttributeGroup, bool) {
+	return u.attributeGroups.Get(attr)
+}
+
+func (u *RoleManager) TotalAttributeGroups() uintptr {
+	return u.attributeGroups.Len()
 }
 
 func (u *RoleManager) TotalRoles() uintptr {
@@ -256,6 +279,23 @@ func (u *RoleManager) GetRolesForPrincipalByTenant(tenant, principalID string) (
 		}
 	}
 	return
+}
+
+func (u *RoleManager) AddPermissionsToRole(roleID, attributeGroupID string, attrs ...*Attribute) error {
+	role, ok := u.roles.Get(roleID)
+	if !ok {
+		return errors.New("no role available")
+	}
+	attributeGroup, ok := u.attributeGroups.Get(attributeGroupID)
+	if !ok {
+		return errors.New("no attribute group available")
+	}
+	for _, attr := range attrs {
+		if _, ok := attributeGroup.permissions.Get(attr.String()); !ok {
+			return fmt.Errorf("attribute '%s' not associated to the group '%s'", attr.String(), attributeGroupID)
+		}
+	}
+	return role.AddPermission(attributeGroupID, attrs...)
 }
 
 func (u *RoleManager) GetAllowedRoles(principalRoles *TenantPrincipal, namespace, scope string) []string {
