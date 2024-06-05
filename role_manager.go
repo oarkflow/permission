@@ -56,12 +56,16 @@ func (u *RoleManager) AddAttribute(attr *Attribute) *Attribute {
 
 func (u *RoleManager) AddAttributes(attrs ...*Attribute) {
 	for _, attr := range attrs {
-		u.AddAttributes(attr)
+		u.AddAttribute(attr)
 	}
 }
 
 func (u *RoleManager) GetAttribute(attr string) (*Attribute, bool) {
 	return u.attributes.Get(attr)
+}
+
+func (u *RoleManager) Attributes() map[string]*Attribute {
+	return u.attributes.AsMap()
 }
 
 func (u *RoleManager) AddRole(role *Role) *Role {
