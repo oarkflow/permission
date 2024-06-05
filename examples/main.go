@@ -38,14 +38,14 @@ func main() {
 			permission.WithTenant("TenantA"),
 			permission.WithNamespace("NamespaceA"),
 			permission.WithScope(e29.ID),
-			permission.WithResourceGroup("page"),
+			permission.WithResourceGroup("backend"),
 			permission.WithActivity("/coding/1/2/start-coding POST"),
 		), "E:", true)
 		fmt.Println("R:", authorizer.Authorize(principalA.ID,
 			permission.WithTenant("TenantA"),
 			permission.WithNamespace("NamespaceA"),
 			permission.WithScope(e29.ID),
-			permission.WithResourceGroup("page"),
+			permission.WithResourceGroup("backend"),
 			permission.WithActivity("/coding/1/open GET"),
 		), "E:", true)
 		fmt.Println("R:", authorizer.Authorize(principalA.ID,
@@ -54,69 +54,79 @@ func main() {
 			permission.WithScope(e29.ID),
 			permission.WithResourceGroup("backend"),
 			permission.WithActivity("/coding/1/2/start-coding POST"),
-		), "E:", false)
+		), "E:", true)
+	}
+}
+
+func coderPermissions() []*permission.Attribute {
+	return []*permission.Attribute{
+		{"/coding/:wid/:eid/start-coding", "POST"},
+		{"/coding/:wid/open", "GET"},
+		{"/coding/:wid/in-progress", "GET"},
+		{"/coding/:wid/:eid/review", "POST"},
+	}
+}
+
+func qaPermissions() []*permission.Attribute {
+	return []*permission.Attribute{
+		{"/coding/:wid/:eid/start-qa", "POST"},
+		{"/coding/:wid/qa", "GET"},
+		{"/coding/:wid/qa-in-progress", "GET"},
+		{"/coding/:wid/:eid/qa-review", "POST"},
+	}
+}
+
+func suspendManagerPermissions() []*permission.Attribute {
+	return []*permission.Attribute{
+		{"/coding/:wid/suspended", "GET"},
+		{"/coding/:wid/:eid/release-suspend", "POST"},
+		{"/coding/:wid/:eid/request-abandon", "POST"},
+	}
+}
+
+func adminManagerPermissions() []*permission.Attribute {
+	return []*permission.Attribute{
+		{"/admin/principal/add", "POST"},
+		{"/admin/principal/edit", "PUT"},
 	}
 }
 
 func myRoles(authorizer *permission.RoleManager) (coder *permission.Role, qa *permission.Role, suspendManager *permission.Role, admin *permission.Role) {
 	coder = authorizer.AddRole(permission.NewRole("coder"))
-	perm := []*permission.Attribute{
-		{"/coding/:wid/:eid/start-coding", "POST"},
-		{"/coding/:wid/open", "GET"},
-		{"/coding/:wid/in-progress", "GET"},
-		{"/coding/:wid/:eid/review", "POST"},
-	}
-	coder.AddPermission("page", perm...)
-
 	qa = authorizer.AddRole(permission.NewRole("qa"))
-	perm = []*permission.Attribute{
-		{"/coding/:wid/:eid/start-qa", "POST"},
-		{"/coding/:wid/qa", "GET"},
-		{"/coding/:wid/qa-in-progress", "GET"},
-		{"/coding/:wid/:eid/qa-review", "POST"},
-	}
-	qa.AddPermission("page", perm...)
-
 	suspendManager = authorizer.AddRole(permission.NewRole("suspend-manager"))
-	perm = []*permission.Attribute{
-		{"/coding/:wid/suspended", "GET"},
-		{"/coding/:wid/:eid/release-suspend", "POST"},
-		{"/coding/:wid/:eid/request-abandon", "POST"},
-	}
-	suspendManager.AddPermission("page", perm...)
-
 	admin = authorizer.AddRole(permission.NewRole("admin"))
-	perm = []*permission.Attribute{
-		{"/admin/principal/add", "POST"},
-		{"/admin/principal/edit", "PUT"},
+	err := authorizer.AddPermissionsToRole(coder.ID, "backend", coderPermissions()...)
+	if err != nil {
+		panic(err)
 	}
-	admin.AddPermission("page", perm...)
-	admin.AddDescendent(coder, qa, suspendManager)
+	err = authorizer.AddPermissionsToRole(qa.ID, "backend", qaPermissions()...)
+	if err != nil {
+		panic(err)
+	}
+	err = authorizer.AddPermissionsToRole(suspendManager.ID, "backend", suspendManagerPermissions()...)
+	if err != nil {
+		panic(err)
+	}
+	err = authorizer.AddPermissionsToRole(admin.ID, "page", adminManagerPermissions()...)
+	if err != nil {
+		panic(err)
+	}
+	err = admin.AddDescendent(coder, qa, suspendManager)
+	if err != nil {
+		panic(err)
+	}
 	return
 }
 
 func addAttributes(authorizer *permission.RoleManager) {
-	attrs := []*permission.Attribute{
-		{"/coding/:wid/:eid/start-coding", "POST"},
-		{"/coding/:wid/open", "GET"},
-		{"/coding/:wid/in-progress", "GET"},
-		{"/coding/:wid/:eid/review", "POST"},
-		{"/coding/:wid/:eid/start-qa", "POST"},
-		{"/coding/:wid/qa", "GET"},
-		{"/coding/:wid/qa-in-progress", "GET"},
-		{"/coding/:wid/:eid/qa-review", "POST"},
-		{"/coding/:wid/suspended", "GET"},
-		{"/coding/:wid/:eid/release-suspend", "POST"},
-		{"/coding/:wid/:eid/request-abandon", "POST"},
-	}
+	var attrs []*permission.Attribute
+	attrs = append(attrs, qaPermissions()...)
+	attrs = append(attrs, coderPermissions()...)
+	attrs = append(attrs, suspendManagerPermissions()...)
 	backendGroup := permission.NewAttributeGroup("backend")
 	backendGroup.AddAttributes(attrs...)
-
-	perm := []*permission.Attribute{
-		{"/admin/principal/add", "POST"},
-		{"/admin/principal/edit", "PUT"},
-	}
 	pageGroup := permission.NewAttributeGroup("page")
-	pageGroup.AddAttributes(perm...)
+	pageGroup.AddAttributes(adminManagerPermissions()...)
 	authorizer.AddAttributeGroups(backendGroup, pageGroup)
 }

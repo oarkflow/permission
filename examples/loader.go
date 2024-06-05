@@ -4,20 +4,22 @@ import (
 	"fmt"
 	"runtime"
 
-	"github.com/oarkflow/permission/loader"
+	"github.com/oarkflow/permission"
 )
 
 func main() {
-	load := loader.New(loader.Config{
-		TenantKey:    "company_id",
-		NamespaceKey: "service_id",
-		ScopeKey:     "entity_id",
-		RoleKey:      "role_id",
-		ResourceKey:  "route_uri",
-		ActionKey:    "route_method",
-	})
+	authorizer := permission.New()
+	config := permission.Config{
+		TenantKey:        "company_id",
+		NamespaceKey:     "service_id",
+		ScopeKey:         "entity_id",
+		RoleKey:          "role_id",
+		ResourceKey:      "route_uri",
+		ActionKey:        "route_method",
+		ResourceGroupKey: "category",
+	}
 	stats("BEFORE")
-	authorizer, err := load.LoadFile("company_permissions.json")
+	err := authorizer.LoadFile(config, "company_permissions.json")
 	if err != nil {
 		panic(err)
 	}
@@ -26,6 +28,7 @@ func main() {
 	fmt.Println("Namespace", authorizer.TotalNamespaces())
 	fmt.Println("Scopes", authorizer.TotalScopes())
 	fmt.Println("Roles", authorizer.TotalRoles())
+	fmt.Println("AttributeGroups", authorizer.TotalAttributeGroups())
 	fmt.Println("Attributes", authorizer.TotalAttributes())
 }
 
@@ -38,13 +41,13 @@ func stats(suffix string) {
 }
 
 // {
-//"entity":"facility",
-//"model":"",
-//"entity_id_placeholder":"",
-//"route_uri":"/users/roles/assign",
-//"route_method":"POST",
-//"company_id":9,
-//"service_id":2,
-//"role_id":18,
-//"entity_id":41
-//}
+// "entity":"facility",
+// "model":"",
+// "entity_id_placeholder":"",
+// "route_uri":"/users/roles/assign",
+// "route_method":"POST",
+// "company_id":9,
+// "service_id":2,
+// "role_id":18,
+// "entity_id":41
+// }

@@ -1,11 +1,15 @@
 package permission
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"slices"
 
 	"github.com/oarkflow/maps"
+
+	"github.com/oarkflow/permission/utils"
 )
 
 // Principal represents a user with a role
@@ -83,8 +87,8 @@ func (u *RoleManager) AddAttributeGroups(attrs ...*AttributeGroup) {
 	}
 }
 
-func (u *RoleManager) GetAttributeGroup(attr string) (*AttributeGroup, bool) {
-	return u.attributeGroups.Get(attr)
+func (u *RoleManager) GetAttributeGroup(id string) (*AttributeGroup, bool) {
+	return u.attributeGroups.Get(id)
 }
 
 func (u *RoleManager) TotalAttributeGroups() uintptr {
@@ -417,4 +421,198 @@ func (u *RoleManager) Authorize(principalID string, options ...func(*Option)) bo
 		}
 	}
 	return false
+}
+
+type Config struct {
+	TenantKey        string
+	NamespaceKey     string
+	ScopeKey         string
+	RoleKey          string
+	ResourceGroupKey string
+	ResourceKey      string
+	ActionKey        string
+}
+
+func (u *RoleManager) LoadTenant(tenantKey string, data []map[string]any) error {
+	for _, item := range data {
+		tenantVal := utils.ToString(item[tenantKey])
+		if tenantVal != "" {
+			u.AddTenant(NewTenant(tenantVal))
+		}
+	}
+	return nil
+}
+
+func (u *RoleManager) LoadScope(scopeKey string, data []map[string]any) error {
+	for _, item := range data {
+		scopeVal := utils.ToString(item[scopeKey])
+		if scopeVal != "" {
+			u.AddScope(NewScope(scopeVal))
+		}
+	}
+	return nil
+}
+
+func (u *RoleManager) LoadTenantScope(config Config, data []map[string]any) error {
+	for _, item := range data {
+		tenantVal := utils.ToString(item[config.TenantKey])
+		scopeVal := utils.ToString(item[config.ScopeKey])
+		namespaceVal := utils.ToString(item[config.NamespaceKey])
+		var tenant *Tenant
+		var scopeID, namespaceID string
+		tenant, exists := u.GetTenant(tenantVal)
+		if !exists {
+			tenant = u.AddTenant(NewTenant(tenantVal))
+		}
+		if namespaceVal != "" {
+			att, exists := u.GetNamespace(namespaceVal)
+			if !exists {
+				att = u.AddNamespace(NewNamespace(namespaceVal))
+			}
+			namespaceID = att.ID
+			if tenant != nil {
+				tenant.AddNamespace(att)
+			}
+		}
+		if scopeVal != "" {
+			att, exists := u.GetScope(scopeVal)
+			if !exists {
+				att = u.AddScope(NewScope(scopeVal))
+			}
+
+			if tenant != nil {
+				tenant.AddScopes(att)
+				if namespaceID != "" {
+					tenant.AddScopesToNamespace(namespaceID, scopeID)
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func (u *RoleManager) LoadNamespace(namespaceKey string, data []map[string]any) error {
+	for _, item := range data {
+		namespaceVal := utils.ToString(item[namespaceKey])
+		if namespaceVal != "" {
+			u.AddNamespace(NewNamespace(namespaceVal))
+		}
+	}
+	return nil
+}
+
+func (u *RoleManager) LoadRoles(roleKey string, data []map[string]any) error {
+	for _, item := range data {
+		roleVal := utils.ToString(item[roleKey])
+		if roleVal != "" {
+			u.AddRole(NewRole(roleVal))
+		}
+	}
+	return nil
+}
+
+func (u *RoleManager) LoadAttributes(groupKey, attributeKey, actionKey string, data []map[string]any) error {
+	for _, item := range data {
+		groupVal := utils.ToString(item[groupKey])
+		attributeVal := utils.ToString(item[attributeKey])
+		actionVal := utils.ToString(item[actionKey])
+		group, ex := u.GetAttributeGroup(groupVal)
+		if !ex {
+			group = u.AddAttributeGroup(NewAttributeGroup(groupVal))
+		}
+		if attributeVal != "" {
+			p := &Attribute{Resource: attributeVal, Action: actionVal}
+			u.AddAttribute(p)
+			group.AddAttributes(p)
+		}
+	}
+	return nil
+}
+
+func (u *RoleManager) Load(config Config, data []map[string]any) error {
+	for _, item := range data {
+		tenantKey := utils.ToString(item[config.TenantKey])
+		if tenantKey == "" {
+			continue
+		}
+		var tenant *Tenant
+		tenant, exists := u.GetTenant(tenantKey)
+		if !exists {
+			tenant = u.AddTenant(NewTenant(tenantKey))
+		}
+		var perm *Attribute
+		var scopeID, namespaceID string
+		namespaceKey := utils.ToString(item[config.NamespaceKey])
+		scopeKey := utils.ToString(item[config.ScopeKey])
+		roleKey := utils.ToString(item[config.RoleKey])
+		resource := utils.ToString(item[config.ResourceKey])
+		resourceGroup := utils.ToString(item[config.ResourceGroupKey])
+		action := utils.ToString(item[config.ActionKey])
+		if resource != "" {
+			p := &Attribute{Resource: resource, Action: action}
+			att, exists := u.GetAttribute(p.String())
+			if !exists {
+				att = u.AddAttribute(p)
+			}
+			perm = att
+		}
+
+		if namespaceKey != "" {
+			att, exists := u.GetNamespace(namespaceKey)
+			if !exists {
+				att = u.AddNamespace(NewNamespace(namespaceKey))
+			}
+			namespaceID = att.ID
+			if tenant != nil {
+				tenant.AddNamespace(att)
+			}
+		}
+		if scopeKey != "" {
+			att, exists := u.GetScope(scopeKey)
+			if !exists {
+				att = u.AddScope(NewScope(scopeKey))
+			}
+
+			if tenant != nil {
+				tenant.AddScopes(att)
+				if namespaceID != "" {
+					tenant.AddScopesToNamespace(namespaceID, scopeID)
+				}
+			}
+		}
+		if roleKey != "" {
+			att, exists := u.GetRole(roleKey)
+			if !exists {
+				att = u.AddRole(NewRole(roleKey))
+			}
+			if perm != nil {
+				att.AddPermission(resourceGroup, perm)
+			}
+			if tenant != nil {
+				tenant.AddRole(att)
+				if namespaceID != "" {
+					tenant.AddRolesToNamespace(namespaceID, att.ID)
+				}
+			}
+		}
+	}
+
+	return nil
+}
+
+func (u *RoleManager) LoadBytes(config Config, bt []byte) error {
+	var data []map[string]any
+	err := json.Unmarshal(bt, &data)
+	if err != nil {
+		return err
+	}
+	return u.Load(config, data)
+}
+
+func (u *RoleManager) LoadFile(config Config, file string) error {
+	data, err := os.ReadFile(file)
+	if err != nil {
+		return err
+	}
+	return u.LoadBytes(config, data)
 }
