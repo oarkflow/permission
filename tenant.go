@@ -5,13 +5,13 @@ import (
 )
 
 type Tenant struct {
-	ID               string
-	defaultNamespace *Namespace
 	Namespaces       maps.IMap[string, *Namespace]
 	Roles            maps.IMap[string, *Role]
 	Scopes           maps.IMap[string, *Scope]
 	descendants      maps.IMap[string, *Tenant]
+	defaultNamespace *Namespace
 	manager          *RoleManager
+	ID               string
 }
 
 func (c *Tenant) GetDescendantTenants() []*Tenant {
@@ -162,9 +162,9 @@ func (c *Tenant) AssignScopesWithRole(principalID, roleId string, scopes ...stri
 }
 
 type Namespace struct {
-	ID     string
 	Roles  maps.IMap[string, *Role]
 	Scopes maps.IMap[string, *Scope]
+	ID     string
 }
 type Scope struct {
 	ID string

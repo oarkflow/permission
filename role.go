@@ -21,16 +21,16 @@ func (a Attribute) String(delimiter ...string) string {
 }
 
 type AttributeResourceGroup struct {
-	ID          string
 	permissions maps.IMap[string, *Attribute]
+	ID          string
 }
 
 // Role represents a principal role with its permissions
 type Role struct {
-	ID          string
-	lock        bool
 	permissions maps.IMap[string, *AttributeResourceGroup]
 	descendants maps.IMap[string, *Role]
+	ID          string
+	lock        bool
 }
 
 func (r *Role) Lock() {

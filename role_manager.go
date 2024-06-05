@@ -12,19 +12,19 @@ type Principal struct {
 }
 
 type PrincipalRole struct {
-	PrincipalID          string
-	RoleID               string
-	CanManageDescendants bool
 	Tenant               *Tenant
 	Namespace            *Namespace
 	Scope                *Scope
+	PrincipalID          string
+	RoleID               string
+	CanManageDescendants bool
 }
 
 type TenantPrincipal struct {
 	Tenant               *Tenant
 	Principal            *Principal
-	CanManageDescendants bool
 	Roles                []*PrincipalRole
+	CanManageDescendants bool
 }
 
 type RoleManager struct {
@@ -62,6 +62,30 @@ func (u *RoleManager) AddAttributes(attrs ...*Attribute) {
 
 func (u *RoleManager) GetAttribute(attr string) (*Attribute, bool) {
 	return u.attributes.Get(attr)
+}
+
+func (u *RoleManager) TotalAttributes() uintptr {
+	return u.attributes.Len()
+}
+
+func (u *RoleManager) TotalRoles() uintptr {
+	return u.roles.Len()
+}
+
+func (u *RoleManager) TotalNamespaces() uintptr {
+	return u.namespaces.Len()
+}
+
+func (u *RoleManager) TotalScopes() uintptr {
+	return u.scopes.Len()
+}
+
+func (u *RoleManager) TotalTenants() uintptr {
+	return u.tenants.Len()
+}
+
+func (u *RoleManager) TotalPrincipals() uintptr {
+	return u.principals.Len()
 }
 
 func (u *RoleManager) Attributes() map[string]*Attribute {

@@ -16,25 +16,25 @@ func main() {
 		ResourceKey:  "route_uri",
 		ActionKey:    "route_method",
 	})
-	stats()
+	stats("BEFORE")
 	authorizer, err := load.LoadFile("company_permissions.json")
 	if err != nil {
 		panic(err)
 	}
-	stats()
-	fmt.Println("Tenant", len(authorizer.Tenants()))
-	fmt.Println("Namespace", len(authorizer.Namespaces()))
-	fmt.Println("Scopes", len(authorizer.Scopes()))
-	fmt.Println("Roles", len(authorizer.Roles()))
-	fmt.Println("Attributes", len(authorizer.Attributes()))
+	stats("AFTER")
+	fmt.Println("Tenant", authorizer.TotalTenants())
+	fmt.Println("Namespace", authorizer.TotalNamespaces())
+	fmt.Println("Scopes", authorizer.TotalScopes())
+	fmt.Println("Roles", authorizer.TotalRoles())
+	fmt.Println("Attributes", authorizer.TotalAttributes())
 }
 
-func stats() {
+func stats(suffix string) {
 	var mem runtime.MemStats
 	runtime.ReadMemStats(&mem)
 
-	fmt.Printf("Total allocated memory: %f MB\n", float64(mem.TotalAlloc)/(1<<20))
-	fmt.Printf("Number of memory allocations: %d\n", mem.Mallocs)
+	fmt.Printf("Total allocated memory: %f MB %s\n", float64(mem.TotalAlloc)/(1<<20), suffix)
+	fmt.Printf("Number of memory allocations: %d %s\n", mem.Mallocs, suffix)
 }
 
 // {
