@@ -5,6 +5,8 @@ import (
 	"slices"
 
 	"github.com/oarkflow/maps"
+
+	"github.com/oarkflow/permission/utils"
 )
 
 type Attribute struct {
@@ -51,7 +53,7 @@ func (r *Role) Has(resourceGroup, permissionName string, allowedDescendants ...s
 	}
 	matched := false
 	resourceGroupPermissions.permissions.ForEach(func(perm string, _ *Attribute) bool {
-		if MatchResource(permissionName, perm) {
+		if utils.MatchResource(permissionName, perm) {
 			matched = true
 			return false
 		}

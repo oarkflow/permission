@@ -1,4 +1,6 @@
 github.com/oarkflow/maps v0.0.0-20240406152114-fc5a94538f01 h1:2U3KpUUHKyKNcc9wR6S5xMffSbHv9T42qPMFTXimLXE=
 github.com/oarkflow/maps v0.0.0-20240406152114-fc5a94538f01/go.mod h1:ku/3mpezSm5g3rBuU2U3UPpzBhJ86SY/mhvvliTTWg4=
+github.com/oarkflow/pool v0.0.1 h1:lIyBtQ+n8bfctZPxDBDAz5Lz24wm6LyLnvgvn5xnxOU=
+github.com/oarkflow/pool v0.0.1/go.mod h1:eZBM+2nDKOtMn/qHk6KKkRrFFnOmNY59ez7pjAg4wRU=
 golang.org/x/exp v0.0.0-20240531132922-fd00a4e0eefc h1:O9NuF4s+E/PvMIy+9IUZB9znFwUIXEWSstNjek6VpVg=
 golang.org/x/exp v0.0.0-20240531132922-fd00a4e0eefc/go.mod h1:XtvwrStGgqGPLc4cjQfWqZHG1YFdYs6swckp8vpsjnc=

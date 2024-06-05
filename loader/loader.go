@@ -2,10 +2,10 @@ package loader
 
 import (
 	"encoding/json"
-	"fmt"
 	"os"
 
 	"github.com/oarkflow/permission"
+	"github.com/oarkflow/permission/utils"
 )
 
 type Config struct {
@@ -30,7 +30,7 @@ func (l *Loader) Load(data []map[string]any) (*permission.RoleManager, error) {
 	config := l.cfg
 	authorizer := permission.New()
 	for _, item := range data {
-		tenantKey := ToString(item[config.TenantKey])
+		tenantKey := utils.ToString(item[config.TenantKey])
 		if tenantKey == "" {
 			continue
 		}
@@ -41,12 +41,12 @@ func (l *Loader) Load(data []map[string]any) (*permission.RoleManager, error) {
 		}
 		var perm *permission.Attribute
 		var scopeID, namespaceID string
-		namespaceKey := ToString(item[config.NamespaceKey])
-		scopeKey := ToString(item[config.ScopeKey])
-		roleKey := ToString(item[config.RoleKey])
-		resource := ToString(item[config.ResourceKey])
-		resourceGroup := ToString(item[config.ResourceGroupKey])
-		action := ToString(item[config.ActionKey])
+		namespaceKey := utils.ToString(item[config.NamespaceKey])
+		scopeKey := utils.ToString(item[config.ScopeKey])
+		roleKey := utils.ToString(item[config.RoleKey])
+		resource := utils.ToString(item[config.ResourceKey])
+		resourceGroup := utils.ToString(item[config.ResourceGroupKey])
+		action := utils.ToString(item[config.ActionKey])
 		if resource != "" {
 			p := &permission.Attribute{Resource: resource, Action: action}
 			att, exists := authorizer.GetAttribute(p.String())
@@ -114,17 +114,4 @@ func (l *Loader) LoadFile(file string) (*permission.RoleManager, error) {
 		return nil, err
 	}
 	return l.LoadBytes(data)
-}
-
-func ToString(val any) string {
-	switch val := val.(type) {
-	case string:
-		return val
-	case nil:
-		return ""
-	case fmt.Stringer:
-		return val.String()
-	default:
-		return fmt.Sprintf("%v", val)
-	}
 }
