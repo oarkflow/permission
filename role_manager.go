@@ -29,7 +29,7 @@ type PrincipalRole struct {
 type TenantPrincipal struct {
 	Tenant               *Tenant
 	Principal            *Principal
-	Roles                []*PrincipalRole
+	PrincipalRoles       []*PrincipalRole
 	CanManageDescendants bool
 }
 
@@ -236,18 +236,31 @@ func (u *RoleManager) AddPrincipalRole(principalID string, roleID string, tenant
 			CanManageDescendants: manageDescendants,
 		}
 	}
-	tenantPrincipal.Roles = append(tenantPrincipal.Roles, role)
+	tenantPrincipal.PrincipalRoles = append(tenantPrincipal.PrincipalRoles, role)
 	u.tenantPrincipals.GetOrSet(tenant.ID, tenantPrincipal)
 }
 
+func (u *RoleManager) GetTenantsForPrincipal(principalID string) (tenants []string, err error) {
+	u.tenantPrincipals.ForEach(func(id string, tenant *TenantPrincipal) bool {
+		for _, r := range tenant.PrincipalRoles {
+			if r.PrincipalID == principalID {
+				tenants = append(tenants, id)
+			}
+		}
+		return true
+	})
+	tenants = slices.Compact(tenants)
+	return
+}
+
 func (u *RoleManager) GetPrincipalRoles(tenant, principalID string) *TenantPrincipal {
-	principalRoles, ok := u.tenantPrincipals.Get(tenant)
+	instance, ok := u.tenantPrincipals.Get(tenant)
 	if !ok {
 		return nil
 	}
-	roles := make([]*PrincipalRole, 0, len(principalRoles.Roles))
+	roles := make([]*PrincipalRole, 0, len(instance.PrincipalRoles))
 	principalFound := false
-	for _, ut := range principalRoles.Roles {
+	for _, ut := range instance.PrincipalRoles {
 		if ut.PrincipalID == principalID {
 			principalFound = true
 			roles = append(roles, ut)
@@ -257,10 +270,10 @@ func (u *RoleManager) GetPrincipalRoles(tenant, principalID string) *TenantPrinc
 		return nil
 	}
 	return &TenantPrincipal{
-		Tenant:               principalRoles.Tenant,
-		Principal:            principalRoles.Principal,
-		CanManageDescendants: principalRoles.CanManageDescendants,
-		Roles:                roles,
+		Tenant:               instance.Tenant,
+		Principal:            instance.Principal,
+		CanManageDescendants: instance.CanManageDescendants,
+		PrincipalRoles:       roles,
 	}
 }
 
@@ -269,7 +282,7 @@ func (u *RoleManager) GetPrincipalRolesByTenant(tenant string) []*PrincipalRole 
 	if !ok {
 		return nil
 	}
-	return principalRoles.Roles
+	return principalRoles.PrincipalRoles
 }
 
 func (u *RoleManager) GetRolesForPrincipalByTenant(tenant, principalID string) (ut []*PrincipalRole) {
@@ -277,7 +290,7 @@ func (u *RoleManager) GetRolesForPrincipalByTenant(tenant, principalID string) (
 	if !ok {
 		return
 	}
-	for _, ur := range principalRoles.Roles {
+	for _, ur := range principalRoles.PrincipalRoles {
 		if ur.PrincipalID == principalID {
 			ut = append(ut, ur)
 		}
@@ -339,7 +352,7 @@ func (u *RoleManager) GetAllowedRoles(principalRoles *TenantPrincipal, namespace
 		})
 	}
 
-	for _, principalRole := range principalRoles.Roles {
+	for _, principalRole := range principalRoles.PrincipalRoles {
 		if principalRole.Scope != nil {
 			scopes = append(scopes, principalRole.Scope.ID)
 		}

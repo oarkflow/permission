@@ -127,7 +127,7 @@ func (c *Tenant) AssignScopesToPrincipal(principalID string, scopes ...string) {
 	if principal == nil {
 		return
 	}
-	for _, role := range principal.Roles {
+	for _, role := range principal.PrincipalRoles {
 		for _, id := range scopes {
 			if scope, ok := c.Scopes.Get(id); ok {
 				c.AddPrincipalRole(principalID, role.RoleID, c, nil, scope)
