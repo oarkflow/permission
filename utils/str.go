@@ -10,6 +10,8 @@ func ToString(val any) string {
 	switch val := val.(type) {
 	case string:
 		return val
+	case []byte:
+		return string(val)
 	case nil:
 		return ""
 	case fmt.Stringer:

@@ -9,29 +9,29 @@ import (
 func main() {
 	authorizer := permission.New()
 	addAttributes(authorizer)
-	tenant := authorizer.AddTenant(permission.NewTenant("TenantA"))
+	tenantA := authorizer.AddTenant(permission.NewTenant("TenantA"))
 	namespace := authorizer.AddNamespace(permission.NewNamespace("NamespaceA"))
-	tenant.AddNamespace(namespace)
-	// tenant.SetDefaultNamespace(namespace.id)
+	tenantA.AddNamespace(namespace)
+	// tenantA.SetDefaultNamespace(namespace.id)
 
 	coder, qa, suspendManager, _ := myRoles(authorizer)
-	tenant.AddRole(coder, qa, suspendManager)
+	tenantA.AddRole(coder, qa, suspendManager)
 	e29 := authorizer.AddScope(permission.NewScope("29"))
 	e30 := authorizer.AddScope(permission.NewScope("30"))
 	e33 := authorizer.AddScope(permission.NewScope("33"))
-	tenant.AddScopes(e29, e30, e33)
+	tenantA.AddScopes(e29, e30, e33)
 
 	principalA := authorizer.AddPrincipal(permission.NewPrincipal("principalA"))
 	principalB := authorizer.AddPrincipal(permission.NewPrincipal("principalB"))
 	principalC := authorizer.AddPrincipal(permission.NewPrincipal("principalC"))
 
-	tenant.AddPrincipal(principalA.ID(), coder.ID())
-	tenant.AddPrincipal(principalB.ID(), qa.ID())
-	tenant.AddPrincipal(principalC.ID(), suspendManager.ID())
+	tenantA.AddPrincipal(principalA.ID(), coder.ID())
+	tenantA.AddPrincipal(principalB.ID(), qa.ID())
+	tenantA.AddPrincipal(principalC.ID(), suspendManager.ID())
 
-	tenant.AssignScopesToPrincipal(principalA.ID(), e29.ID())
-	tenant.AssignScopesToPrincipal(principalB.ID(), e30.ID())
-	tenant.AssignScopesToPrincipal(principalC.ID(), e33.ID())
+	tenantA.AssignScopesToPrincipal(principalA.ID(), e29.ID())
+	tenantA.AssignScopesToPrincipal(principalB.ID(), e30.ID())
+	tenantA.AssignScopesToPrincipal(principalC.ID(), e33.ID())
 
 	{
 		fmt.Println("R:", authorizer.Authorize(principalA.ID(),

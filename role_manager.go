@@ -1,6 +1,7 @@
 package permission
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"slices"
@@ -332,6 +333,24 @@ func (u *RoleManager) GetPrincipalRoles(tenant, principalID string) (data []Tena
 	return
 }
 
+func (u *RoleManager) GetImplicitPrincipalRoles(tenantID, principalID string) (data []TenantPrincipal) {
+	data = u.GetPrincipalRoles(tenantID, principalID)
+	if tenant, ok := u.tenants.Get(tenantID); ok {
+		if tenant.descendants.Len() > 0 {
+			tenant.descendants.ForEach(func(id string, _ *Tenant) bool {
+				for tenantPrincipal := range u.tenantPrincipals {
+					unmarshalled := getTenantPrincipals(tenantPrincipal)
+					if unmarshalled.TenantID == id {
+						data = append(data, unmarshalled)
+					}
+				}
+				return true
+			})
+		}
+	}
+	return
+}
+
 func (u *RoleManager) GetPermissionsForPrincipal(tenant, principalID string) (data []PrincipalPermissions) {
 	for tenantPrincipal := range u.tenantPrincipals {
 		unmarshalled := getTenantPrincipals(tenantPrincipal)
@@ -467,7 +486,6 @@ func (u *RoleManager) Authorize(principalID string, options ...func(*Option)) bo
 	for _, o := range options {
 		o(svr)
 	}
-
 	if _, exists := u.GetPrincipal(principalID); !exists {
 		return false
 	}
@@ -573,7 +591,6 @@ func (u *RoleManager) authorizeComplex(svr *Option, principalID string) bool {
 	if !exists {
 		return false
 	}
-
 	principalRoles := u.GetPrincipalRoles(utils.ToString(tenantID), principalID)
 	if principalRoles == nil {
 		return false
@@ -597,6 +614,7 @@ func (u *RoleManager) authorizeComplex(svr *Option, principalID string) bool {
 	}
 	allowedRoles := u.GetAllowedRoles(principalRoles, namespace, scope)
 	allowedRoleIDs := u.getAllowedRoleIDs(tenant, allowedRoles)
+
 	for _, role := range roles {
 		if role.Has(resourceGroup, activity, allowedRoleIDs...) {
 			return true
@@ -617,4 +635,44 @@ func (u *RoleManager) getAllowedRoleIDs(tenant *Tenant, roles []string) []string
 		return true
 	})
 	return allowed
+}
+
+type Summary struct {
+	Tenants         uintptr `json:"tenants"`
+	Principals      uintptr `json:"principals"`
+	Namespaces      uintptr `json:"namespaces"`
+	Scopes          uintptr `json:"scopes"`
+	Roles           uintptr `json:"roles"`
+	AttributeGroups uintptr `json:"attribute_groups"`
+	Attributes      uintptr `json:"attributes"`
+}
+
+func (u *RoleManager) Summary() Summary {
+	return Summary{
+		Tenants:         u.TotalTenants(),
+		Namespaces:      u.TotalNamespaces(),
+		Scopes:          u.TotalScopes(),
+		Principals:      u.TotalPrincipals(),
+		Roles:           u.TotalRoles(),
+		AttributeGroups: u.TotalAttributeGroups(),
+		Attributes:      u.TotalAttributes(),
+	}
+}
+
+func (u *RoleManager) SummaryMap() map[string]any {
+	return map[string]any{
+		"tenants":          u.TotalTenants(),
+		"namespaces":       u.TotalNamespaces(),
+		"scopes":           u.TotalScopes(),
+		"principals":       u.TotalPrincipals(),
+		"roles":            u.TotalRoles(),
+		"attribute_groups": u.TotalAttributeGroups(),
+		"attributes":       u.TotalAttributes(),
+	}
+}
+
+func (u *RoleManager) String() string {
+	summary := u.Summary()
+	bt, _ := json.Marshal(summary)
+	return utils.ToString(bt)
 }
