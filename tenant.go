@@ -1,6 +1,8 @@
 package permission
 
 import (
+	"fmt"
+
 	"github.com/oarkflow/maps"
 )
 
@@ -147,6 +149,7 @@ func (c *Tenant) AssignScopesToPrincipal(principalID string, scopes ...string) {
 	if principal == nil {
 		return
 	}
+	fmt.Println(principal)
 	for _, id := range scopes {
 		if scope, ok := c.scopes.Get(id); ok {
 			for _, role := range principal {

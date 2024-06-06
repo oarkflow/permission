@@ -121,13 +121,14 @@ func TestAllFunctions(t *testing.T) {
 	if !foundRole {
 		t.Errorf("Expected %s not found", "coder")
 	}
+	tenantA.AddScopes(e29)
 	tenantA.AssignScopesToPrincipal(principalA.ID(), e29.ID())
 	scopes, err := auth.GetScopesForPrincipal(principalA.ID())
 	if err != nil {
 		t.Errorf("Expected no error Actual %v", err)
 	}
 	if !slices.Contains(scopes, e29.ID()) {
-		t.Errorf("Expected %s not found", e29.ID())
+		t.Errorf("Expected scope %s not found", e29.ID())
 	}
 	can := auth.Authorize(principalA.ID(),
 		WithTenant("TenantA"),

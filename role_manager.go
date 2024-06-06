@@ -30,15 +30,6 @@ type TenantPrincipal struct {
 	CanManageDescendants bool
 }
 
-type PrincipalRole struct {
-	tenant               *Tenant
-	namespace            *Namespace
-	scope                *Scope
-	principalID          string
-	roleID               string
-	canManageDescendents bool
-}
-
 type RoleManager struct {
 	tenants          maps.IMap[string, *Tenant]
 	namespaces       maps.IMap[string, *Namespace]
