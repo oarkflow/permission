@@ -83,8 +83,7 @@ func (c *Tenant) AddScopesToNamespace(namespace string, scopes ...string) {
 			if _, ok = mod.scopes.Get(id); !ok {
 				mod.scopes.Set(id, scope)
 			}
-		} else {
-			return
+			c.AddPrincipalRole("", "", c, mod, scope)
 		}
 	}
 }
@@ -133,10 +132,13 @@ func (c *Tenant) AddPrincipalInNamespace(principal, namespace string, roles ...s
 		}
 	} else {
 		for _, ur := range c.manager.GetPrincipalRolesByTenant(c.id) {
-			if ur.PrincipalID == principal && ur.NamespaceID != "" && ur.NamespaceID != namespace {
-				c.AddPrincipalRole(principal, ur.RoleID, c, mod, nil)
+			if ur.PrincipalID == principal {
+				if ur.NamespaceID != "" && ur.NamespaceID != namespace {
+					c.AddPrincipalRole(principal, ur.RoleID, c, mod, nil)
+				}
 			}
 		}
+		c.AddPrincipalRole(principal, "", c, mod, nil)
 	}
 }
 
@@ -145,14 +147,15 @@ func (c *Tenant) AssignScopesToPrincipal(principalID string, scopes ...string) {
 	if principal == nil {
 		return
 	}
-	for _, role := range principal {
-		for _, id := range scopes {
-			if scope, ok := c.scopes.Get(id); ok {
+	for _, id := range scopes {
+		if scope, ok := c.scopes.Get(id); ok {
+			for _, role := range principal {
 				c.AddPrincipalRole(principalID, role.RoleID, c, nil, scope)
 				if c.defaultNamespace != nil {
 					c.AddPrincipalRole(principalID, role.RoleID, c, c.defaultNamespace, scope)
 				}
 			}
+			c.AddPrincipalRole(principalID, "", c, nil, scope)
 		}
 	}
 }

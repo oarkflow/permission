@@ -25,7 +25,7 @@ func main() {
 	principalB := authorizer.AddPrincipal(permission.NewPrincipal("principalB"))
 	principalC := authorizer.AddPrincipal(permission.NewPrincipal("principalC"))
 
-	tenantA.AddPrincipal(principalA.ID(), coder.ID())
+	// tenantA.AddPrincipal(principalA.ID(), coder.ID())
 	tenantA.AddPrincipal(principalB.ID(), qa.ID())
 	tenantA.AddPrincipal(principalC.ID(), suspendManager.ID())
 
@@ -33,6 +33,30 @@ func main() {
 	tenantA.AssignScopesToPrincipal(principalB.ID(), e30.ID())
 	tenantA.AssignScopesToPrincipal(principalC.ID(), e33.ID())
 
+	{
+		fmt.Println("R:", authorizer.Authorize(principalA.ID(),
+			permission.WithTenant("TenantA"),
+			permission.WithNamespace("NamespaceA"),
+			permission.WithScope(e29.ID()),
+			permission.WithResourceGroup("backend"),
+			permission.WithActivity("/coding/1/2/start-coding POST"),
+		), "E:", false)
+		fmt.Println("R:", authorizer.Authorize(principalA.ID(),
+			permission.WithTenant("TenantA"),
+			permission.WithNamespace("NamespaceA"),
+			permission.WithScope(e29.ID()),
+			permission.WithResourceGroup("backend"),
+			permission.WithActivity("/coding/1/open GET"),
+		), "E:", false)
+		fmt.Println("R:", authorizer.Authorize(principalA.ID(),
+			permission.WithTenant("TenantA"),
+			permission.WithNamespace("NamespaceA"),
+			permission.WithScope(e29.ID()),
+			permission.WithResourceGroup("backend"),
+			permission.WithActivity("/coding/1/2/start-coding POST"),
+		), "E:", false)
+	}
+	tenantA.AddPrincipal(principalA.ID(), coder.ID())
 	{
 		fmt.Println("R:", authorizer.Authorize(principalA.ID(),
 			permission.WithTenant("TenantA"),

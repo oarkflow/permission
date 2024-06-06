@@ -333,6 +333,16 @@ func (u *RoleManager) GetPrincipalRoles(tenant, principalID string) (data []Tena
 	return
 }
 
+func (u *RoleManager) GetTenantRoles(tenant string) (data []TenantPrincipal) {
+	for tenantPrincipal := range u.tenantPrincipals {
+		unmarshalled := getTenantPrincipals(tenantPrincipal)
+		if unmarshalled.TenantID == tenant {
+			data = append(data, unmarshalled)
+		}
+	}
+	return
+}
+
 func (u *RoleManager) GetImplicitPrincipalRoles(tenantID, principalID string) (data []TenantPrincipal) {
 	data = u.GetPrincipalRoles(tenantID, principalID)
 	if tenant, ok := u.tenants.Get(tenantID); ok {
@@ -402,6 +412,40 @@ func (u *RoleManager) GetRolePermissions(roleID string) (map[string][]Attribute,
 		return nil, errors.New("no role available")
 	}
 	return role.GetPermissions(), nil
+}
+
+func (u *RoleManager) GetScopesForPrincipal(principalID string) ([]string, error) {
+	_, ok := u.principals.Get(principalID)
+	if !ok {
+		return nil, errors.New("no principal available")
+	}
+	var scopes []string
+	for tenantPrincipal := range u.tenantPrincipals {
+		unmarshalled := getTenantPrincipals(tenantPrincipal)
+		if unmarshalled.PrincipalID == principalID && unmarshalled.ScopeID != "" {
+			scopes = append(scopes, unmarshalled.ScopeID)
+		}
+	}
+	return scopes, nil
+}
+
+func (u *RoleManager) GetTenantScopesForPrincipal(tenantID, principalID string) ([]string, error) {
+	_, ok := u.principals.Get(principalID)
+	if !ok {
+		return nil, errors.New("no principal available")
+	}
+	_, ok = u.tenants.Get(tenantID)
+	if !ok {
+		return nil, errors.New("no tenant available")
+	}
+	var scopes []string
+	for tenantPrincipal := range u.tenantPrincipals {
+		unmarshalled := getTenantPrincipals(tenantPrincipal)
+		if unmarshalled.PrincipalID == principalID && unmarshalled.ScopeID != "" && unmarshalled.TenantID == tenantID {
+			scopes = append(scopes, unmarshalled.ScopeID)
+		}
+	}
+	return scopes, nil
 }
 
 func (u *RoleManager) GetAllowedRoles(principalRoles []TenantPrincipal, namespace, scope string) []string {
@@ -496,22 +540,93 @@ func (u *RoleManager) Authorize(principalID string, options ...func(*Option)) bo
 	}
 
 	// Check if only namespace is provided
-	if svr.namespace != nil && svr.tenant == "" && svr.scope == nil && svr.resourceGroup == nil && svr.activity == nil {
+	if svr.namespace != nil && svr.tenant == nil && svr.scope == nil && svr.resourceGroup == nil && svr.activity == nil {
 		return u.authorizeForNamespace(principalID, utils.ToString(svr.namespace))
 	}
 
 	// Check if only scope is provided
-	if svr.scope != nil && svr.tenant == "" && svr.namespace == nil && svr.resourceGroup == nil && svr.activity == nil {
+	if svr.scope != nil && svr.tenant == nil && svr.namespace == nil && svr.resourceGroup == nil && svr.activity == nil {
 		return u.authorizeForScope(principalID, utils.ToString(svr.scope))
 	}
 
 	// Check if only activity is provided
-	if svr.activity != nil && svr.tenant == "" && svr.namespace == nil && svr.scope == nil && svr.resourceGroup == nil {
+	if svr.activity != nil && svr.tenant == nil && svr.namespace == nil && svr.scope == nil && svr.resourceGroup == nil {
 		return u.authorizeForActivity(principalID, utils.ToString(svr.activity))
+	}
+	// Check if tenant and namespace
+	if svr.tenant != nil && svr.namespace != nil && svr.scope == nil && svr.resourceGroup == nil && svr.activity == nil {
+		return u.authorizeForTenantAndNamespace(principalID, utils.ToString(svr.tenant), utils.ToString(svr.namespace))
+	}
+
+	// Check if tenant and scope
+	if svr.tenant != nil && svr.namespace == nil && svr.scope != nil && svr.resourceGroup == nil && svr.activity == nil {
+		return u.authorizeForTenantAndScope(principalID, utils.ToString(svr.tenant), utils.ToString(svr.scope))
+	}
+
+	// Check if namespace and scope
+	if svr.tenant == nil && svr.namespace != nil && svr.scope != nil && svr.resourceGroup == nil && svr.activity == nil {
+		return u.authorizeForNamespaceAndScope(principalID, utils.ToString(svr.namespace), utils.ToString(svr.scope))
+	}
+
+	// Check if tenant, namespace and scope
+	if svr.tenant != nil && svr.namespace != nil && svr.scope != nil && svr.resourceGroup == nil && svr.activity == nil {
+		return u.authorizeForTenantNamespaceAndScope(principalID, utils.ToString(svr.tenant), utils.ToString(svr.namespace), utils.ToString(svr.scope))
 	}
 
 	// Handle complex combinations of options
 	return u.authorizeComplex(svr, principalID)
+}
+
+func (u *RoleManager) authorizeForTenantAndNamespace(principalID, tenantID, namespaceID string) bool {
+	userRoles := u.GetPrincipalRoles(tenantID, principalID)
+	for _, r := range userRoles {
+		if r.NamespaceID == namespaceID {
+			return true
+		}
+	}
+	return false
+}
+
+func (u *RoleManager) authorizeForTenantAndScope(principalID, tenantID, scopeID string) bool {
+	userRoles := u.GetPrincipalRoles(tenantID, principalID)
+	for _, r := range userRoles {
+		if r.ScopeID == scopeID {
+			return true
+		}
+	}
+	return false
+}
+
+func (u *RoleManager) authorizeForNamespaceAndScope(principalID, namespaceID, scopeID string) bool {
+	tenants, err := u.GetTenantsForPrincipal(principalID)
+	if err != nil {
+		return false
+	}
+	for _, tenant := range tenants {
+		userRoles := u.GetPrincipalRoles(tenant, principalID)
+		for _, r := range userRoles {
+			if r.NamespaceID == namespaceID && r.ScopeID == scopeID {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func (u *RoleManager) authorizeForTenantNamespaceAndScope(principalID, tenantID, namespaceID, scopeID string) bool {
+	userRoles := u.GetPrincipalRoles(tenantID, principalID)
+	for _, r := range userRoles {
+		if r.NamespaceID == namespaceID && r.ScopeID == scopeID {
+			return true
+		}
+	}
+	tenantRoles := u.GetTenantRoles(tenantID)
+	for _, r := range tenantRoles {
+		if r.NamespaceID == namespaceID && r.ScopeID == scopeID {
+			return true
+		}
+	}
+	return false
 }
 
 func (u *RoleManager) authorizeForTenant(tenantID string) bool {
@@ -614,7 +729,6 @@ func (u *RoleManager) authorizeComplex(svr *Option, principalID string) bool {
 	}
 	allowedRoles := u.GetAllowedRoles(principalRoles, namespace, scope)
 	allowedRoleIDs := u.getAllowedRoleIDs(tenant, allowedRoles)
-
 	for _, role := range roles {
 		if role.Has(resourceGroup, activity, allowedRoleIDs...) {
 			return true
