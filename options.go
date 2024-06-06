@@ -1,14 +1,14 @@
 package permission
 
 type Option struct {
-	tenant        string
+	tenant        any
 	namespace     any
 	scope         any
 	resourceGroup any
 	activity      any
 }
 
-func WithTenant(tenant string) func(*Option) {
+func WithTenant(tenant any) func(*Option) {
 	return func(s *Option) {
 		s.tenant = tenant
 	}

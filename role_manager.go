@@ -473,8 +473,8 @@ func (u *RoleManager) Authorize(principalID string, options ...func(*Option)) bo
 	}
 
 	// Check if only tenant is provided
-	if svr.tenant != "" && svr.namespace == nil && svr.scope == nil && svr.resourceGroup == nil && svr.activity == nil {
-		return u.authorizeForTenant(svr.tenant)
+	if svr.tenant != nil && svr.namespace == nil && svr.scope == nil && svr.resourceGroup == nil && svr.activity == nil {
+		return u.authorizeForTenant(utils.ToString(svr.tenant))
 	}
 
 	// Check if only namespace is provided
@@ -569,12 +569,12 @@ func (u *RoleManager) authorizeComplex(svr *Option, principalID string) bool {
 	resourceGroup := utils.ToString(svr.resourceGroup)
 	activity := utils.ToString(svr.activity)
 
-	tenant, exists := u.GetTenant(tenantID)
+	tenant, exists := u.GetTenant(utils.ToString(tenantID))
 	if !exists {
 		return false
 	}
 
-	principalRoles := u.GetPrincipalRoles(tenantID, principalID)
+	principalRoles := u.GetPrincipalRoles(utils.ToString(tenantID), principalID)
 	if principalRoles == nil {
 		return false
 	}
