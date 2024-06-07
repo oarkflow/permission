@@ -30,6 +30,21 @@ func main() {
 		permission.WithNamespace("NamespaceA"),
 		permission.WithScope(e29.ID()),
 	), "E:", true)
+
+	fmt.Println("R:", authorizer.Authorize(principalA.ID(),
+		permission.WithTenant("TenantA"),
+		permission.WithNamespace("NamespaceA"),
+		permission.WithScope(e29.ID()),
+		permission.WithAttributeGroup("backend"),
+		permission.WithActivity("/coding/1/2/start-coding POST"),
+	), "E:", true)
+
+	fmt.Println("R:", authorizer.Authorize(principalA.ID(),
+		permission.WithTenant("TenantA"),
+		permission.WithNamespace("NamespaceA"),
+		permission.WithAttributeGroup("backend"),
+		permission.WithActivity("/coding/1/2/start-coding POST"),
+	), "E:", true)
 	fmt.Println("R:", authorizer.Authorize(principalA.ID(),
 		permission.WithTenant("TenantB"),
 		permission.WithNamespace("NamespaceA"),

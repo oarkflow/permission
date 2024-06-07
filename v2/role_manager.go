@@ -3,6 +3,7 @@ package v2
 import (
 	"errors"
 	"fmt"
+	"slices"
 
 	"github.com/oarkflow/maps"
 
@@ -47,25 +48,31 @@ func (u *RoleManager) GetTenantsByPrincipal(principalID any) (data []any) {
 	return
 }
 
-func (u *RoleManager) GetTenants(principalID any) map[string]*trie.Data {
-	data := make(map[string]*trie.Data)
+func (u *RoleManager) GetTenants(principalID any) (data []*trie.Data) {
 	rss := u.trie.SearchFunc(trie.Data{PrincipalID: principalID}, filterTenantsByPrincipal)
 	for _, rs := range rss {
-		data[rs.TenantID.(string)] = rs
+		data = append(data, rs)
 	}
-	return data
-}
-
-func (u *RoleManager) GetScopesByPrincipal(principalID any) (data []any) {
-	rss := u.trie.SearchFunc(trie.Data{PrincipalID: principalID}, filterScopeByPrincipal)
-	for _, rs := range rss {
-		data = append(data, rs.ScopeID)
-	}
-	data = utils.Compact(data)
 	return
 }
 
-func (u *RoleManager) GetNamespacesByPrincipal(principalID any) (data []any) {
+func (u *RoleManager) GetScopesByPrincipal(principalID any) (data []*trie.Data) {
+	rss := u.trie.SearchFunc(trie.Data{PrincipalID: principalID}, filterScopeByPrincipal)
+	for _, rs := range rss {
+		data = append(data, rs)
+	}
+	return
+}
+
+func (u *RoleManager) GetRolesByTenant(tenantID any) (data []*trie.Data) {
+	rss := u.trie.SearchFunc(trie.Data{TenantID: tenantID}, filterRoleByTenant)
+	for _, rs := range rss {
+		data = append(data, rs)
+	}
+	return
+}
+
+func (u *RoleManager) GetNamespacesByPrincipal(principalID any) (data []*trie.Data) {
 	tenants := u.GetTenantsByPrincipal(principalID)
 	if len(tenants) == 0 {
 		return
@@ -73,98 +80,127 @@ func (u *RoleManager) GetNamespacesByPrincipal(principalID any) (data []any) {
 	for _, tenant := range tenants {
 		data = append(data, u.GetNamespacesForPrincipalByTenant(principalID, tenant)...)
 	}
-	data = utils.Compact(data)
 	return
 }
 
-func (u *RoleManager) GetNamespacesForPrincipalByTenant(principalID, tenantID any) (data []any) {
+func (u *RoleManager) GetNamespacesForPrincipalByTenant(principalID, tenantID any) (data []*trie.Data) {
 	tenants := u.GetTenantsByPrincipal(principalID)
 	if !utils.Contains(tenants, tenantID) {
 		return
 	}
 	rss := u.trie.SearchFunc(trie.Data{TenantID: tenantID, PrincipalID: principalID}, filterNamespaceForPrincipalByTenant)
 	for _, rs := range rss {
-		data = append(data, rs.NamespaceID)
+		data = append(data, rs)
 	}
-	data = utils.Compact(data)
 	return
 }
 
-func (u *RoleManager) GetNamespacesByTenant(tenantID any) (data []any) {
+func (u *RoleManager) GetNamespacesByTenant(tenantID any) (data []*trie.Data) {
 	rss := u.trie.SearchFunc(trie.Data{TenantID: tenantID}, filterNamespaceByTenant)
 	for _, rs := range rss {
-		data = append(data, rs.NamespaceID)
+		data = append(data, rs)
 	}
-	data = utils.Compact(data)
 	return
 }
 
-func (u *RoleManager) GetScopesByTenant(tenantID any) (data []any) {
+func (u *RoleManager) GetScopesByTenant(tenantID any) (data []*trie.Data) {
 	rss := u.trie.SearchFunc(trie.Data{TenantID: tenantID}, filterScopeByTenant)
 	for _, rs := range rss {
-		data = append(data, rs.ScopeID)
+		data = append(data, rs)
 	}
-	data = utils.Compact(data)
 	return
 }
 
-func (u *RoleManager) GetScopesForPrincipalByTenant(principalID, tenantID any) (data []any) {
+func (u *RoleManager) GetScopesForPrincipalByTenant(principalID, tenantID any) (data []*trie.Data) {
 	tenants := u.GetTenantsByPrincipal(principalID)
 	if !utils.Contains(tenants, tenantID) {
 		return
 	}
 	rss := u.trie.SearchFunc(trie.Data{TenantID: tenantID, PrincipalID: principalID}, filterScopeForPrincipalByTenant)
 	for _, rs := range rss {
-		data = append(data, rs.ScopeID)
+		data = append(data, rs)
 	}
-	data = utils.Compact(data)
 	return
 }
 
-func (u *RoleManager) GetScopeForPrincipalByNamespace(principalID, namespaceID any) (data []any) {
+func (u *RoleManager) GetScopeForPrincipalByNamespace(principalID, namespaceID any) (data []*trie.Data) {
 	tenants := u.GetTenantsByPrincipal(principalID)
 	for _, tenant := range tenants {
 		rss := u.trie.SearchFunc(trie.Data{PrincipalID: principalID, TenantID: tenant, NamespaceID: namespaceID}, filterScopeForPrincipalByTenantAndNamespace)
 		for _, rs := range rss {
-			data = append(data, rs.ScopeID)
+			data = append(data, rs)
 		}
 	}
-	data = utils.Compact(data)
 	return
 }
 
-func (u *RoleManager) GetScopesForPrincipalByTenantAndNamespace(principalID, tenantID, namespaceID any) (data []any) {
+func (u *RoleManager) GetScopesForPrincipalByTenantAndNamespace(principalID, tenantID, namespaceID any) (data []*trie.Data) {
 	tenants := u.GetTenantsByPrincipal(principalID)
 	if !utils.Contains(tenants, tenantID) {
 		return
 	}
 	rss := u.trie.SearchFunc(trie.Data{PrincipalID: principalID, TenantID: tenantID, NamespaceID: namespaceID}, filterScopeForPrincipalByTenantAndNamespace)
 	for _, rs := range rss {
-		data = append(data, rs.ScopeID)
+		data = append(data, rs)
 	}
-	data = utils.Compact(data)
 	return
 }
 
-func (u *RoleManager) GetNamespaceByTenant(tenantID any) (data []any) {
+func (u *RoleManager) GetRolesForPrincipalByTenantNamespaceAndScope(principalID, tenantID, namespaceID, scope any) (data []*trie.Data) {
+	tenants := u.GetTenantsByPrincipal(principalID)
+	if !utils.Contains(tenants, tenantID) {
+		return
+	}
+	rss := u.trie.SearchFunc(trie.Data{PrincipalID: principalID, TenantID: tenantID, NamespaceID: namespaceID, ScopeID: scope}, filterRoleForPrincipalByTenantNamespaceAndScope)
+	for _, rs := range rss {
+		data = append(data, rs)
+	}
+	return
+}
+
+func (u *RoleManager) GetRolesForPrincipalByTenantAndNamespace(principalID, tenantID, namespaceID any) (data []*trie.Data) {
+	tenants := u.GetTenantsByPrincipal(principalID)
+	if !utils.Contains(tenants, tenantID) {
+		return
+
+	}
+	rss := u.trie.SearchFunc(trie.Data{PrincipalID: principalID, TenantID: tenantID, NamespaceID: namespaceID}, filterRoleForPrincipalByTenantAndNamespace)
+	for _, rs := range rss {
+		data = append(data, rs)
+	}
+	return
+}
+
+func (u *RoleManager) GetRolesForPrincipalByTenantAndScope(principalID, tenantID, scopeID any) (data []*trie.Data) {
+	tenants := u.GetTenantsByPrincipal(principalID)
+	if !utils.Contains(tenants, tenantID) {
+		return
+
+	}
+	rss := u.trie.SearchFunc(trie.Data{PrincipalID: principalID, TenantID: tenantID, ScopeID: scopeID}, filterRoleForPrincipalByTenantAndScope)
+	for _, rs := range rss {
+		data = append(data, rs)
+	}
+	return
+}
+
+func (u *RoleManager) GetNamespaceByTenant(tenantID any) (data []*trie.Data) {
 	rss := u.trie.SearchFunc(trie.Data{TenantID: tenantID}, filterNamespaceByTenant)
 	for _, rs := range rss {
-		data = append(data, rs.NamespaceID)
+		data = append(data, rs)
 	}
-	data = utils.Compact(data)
 	return
 }
 
-func (u *RoleManager) GetNamespaceForPrincipalByTenant(principalID, tenantID any) (data []any) {
+func (u *RoleManager) GetNamespaceForPrincipalByTenant(principalID, tenantID any) (data []*trie.Data) {
 	tenants := u.GetTenantsByPrincipal(principalID)
 	if !utils.Contains(tenants, tenantID) {
 		return
 	}
 	rss := u.trie.SearchFunc(trie.Data{TenantID: tenantID, PrincipalID: principalID}, filterNamespaceForPrincipalByTenant)
 	for _, rs := range rss {
-		data = append(data, rs.NamespaceID)
+		data = append(data, rs)
 	}
-	data = utils.Compact(data)
 	return
 }
 
@@ -175,6 +211,21 @@ func (u *RoleManager) Authorize(principalID string, options ...func(*Option)) bo
 	svr := &Option{}
 	for _, o := range options {
 		o(svr)
+	}
+	if svr.tenant != nil {
+		if _, ok := u.tenants.Get(svr.tenant.(string)); !ok {
+			return false
+		}
+	}
+	if svr.namespace != nil {
+		if _, ok := u.namespaces.Get(svr.namespace.(string)); !ok {
+			return false
+		}
+	}
+	if svr.scope != nil {
+		if _, ok := u.scopes.Get(svr.scope.(string)); !ok {
+			return false
+		}
 	}
 	noActivity := svr.activityGroup == nil && svr.activity == nil
 	tFlagProvided := svr.tenant != nil && svr.namespace == nil && svr.scope == nil
@@ -188,86 +239,105 @@ func (u *RoleManager) Authorize(principalID string, options ...func(*Option)) bo
 			return utils.Contains(tenants, svr.tenant)
 		}
 		if tnFlagProvided {
-			nms := u.GetNamespaceForPrincipalByTenant(principalID, svr.tenant)
-			return utils.Contains(nms, svr.namespace)
+			rs := u.GetNamespaceForPrincipalByTenant(principalID, svr.tenant)
+			return utils.Contains(getNamespaceIDs(rs), svr.namespace)
 		}
 		if tsFlagProvided {
-			nms := u.GetScopesForPrincipalByTenant(principalID, svr.tenant)
-			return utils.Contains(nms, svr.scope)
+			rs := u.GetScopesForPrincipalByTenant(principalID, svr.tenant)
+			return utils.Contains(getScopeIDs(rs), svr.scope)
 		}
 		if nsFlagProvided {
-			nms := u.GetScopeForPrincipalByNamespace(principalID, svr.namespace)
-			return utils.Contains(nms, svr.scope)
+			rs := u.GetScopeForPrincipalByNamespace(principalID, svr.namespace)
+			return utils.Contains(getScopeIDs(rs), svr.scope)
 		}
 		if tnsFlagProvided {
-			nms := u.GetScopesForPrincipalByTenantAndNamespace(principalID, svr.tenant, svr.namespace)
-			return utils.Contains(nms, svr.scope)
+			rs := u.GetScopesForPrincipalByTenantAndNamespace(principalID, svr.tenant, svr.namespace)
+			return utils.Contains(getScopeIDs(rs), svr.scope)
+		}
+		return false
+	}
+	var allowedRoles, roles []string
+	if tFlagProvided {
+		for _, d := range u.GetRolesByTenant(svr.tenant) {
+			if d.PrincipalID == principalID {
+				roles = append(roles, d.RoleID.(string))
+			}
+			allowedRoles = append(allowedRoles, d.RoleID.(string))
 		}
 	}
-
-	/*fmt.Println("Tenants")
-	data := u.trie.SearchFunc(trie.Data{PrincipalID: principalID}, func(f *trie.Data, n *trie.Data) bool {
-		if f.PrincipalID == nil {
-			return false
+	if tnFlagProvided {
+		for _, d := range u.GetRolesByTenant(svr.tenant) {
+			allowedRoles = append(allowedRoles, d.RoleID.(string))
 		}
-		return n.PrincipalID == f.PrincipalID && n.TenantID != nil
-	})
-	for _, d := range data {
-		fmt.Println(d)
-	}
-	fmt.Println("Principal Scopes")
-	scopes := u.trie.SearchFunc(trie.Data{PrincipalID: principalID}, func(f *trie.Data, row *trie.Data) bool {
-		if f.PrincipalID == nil {
-			return false
-		}
-		return row.PrincipalID == f.PrincipalID && row.ScopeID != nil
-	})
-	for _, d := range scopes {
-		fmt.Println(d)
-	}
-	fmt.Println("Tenant Scopes")
-	tenantScopes := u.trie.SearchFunc(trie.Data{PrincipalID: principalID, TenantID: "TenantA"}, func(filter *trie.Data, row *trie.Data) bool {
-		if filter.PrincipalID == nil || row.ScopeID == nil {
-			return false
-		}
-		return (row.TenantID == filter.TenantID && row.PrincipalID == filter.PrincipalID) ||
-			(row.TenantID == filter.TenantID && row.PrincipalID == nil)
-	})
-	for _, d := range tenantScopes {
-		fmt.Println(d)
-	}
-
-
-	if svr.tenant != nil {
-		if _, ok := u.tenants.Get(svr.tenant.(string)); !ok {
-			return false
-		}
-	}
-	if svr.namespace != nil {
-		if _, ok := u.namespaces.Get(svr.namespace.(string)); !ok {
-			return false
-		}
-	}
-
-	if svr.scope != nil {
-		if _, ok := u.scopes.Get(svr.scope.(string)); !ok {
-			return false
-		}
-	}
-
-	principalData := make(map[string]*trie.Data)
-	tenants := u.GetImplicitTenantsForPrincipal(principalID)
-	for _, tenant := range tenants {
-		filter := trie.Data{TenantID: tenant}
-		filteredData := u.trie.Search(filter)
-		for _, p := range filteredData {
-			if p.PrincipalID == nil || (p.PrincipalID != nil && p.PrincipalID.(string) == principalID) {
-				principalData[trie.Key(p)] = p
+		for _, d := range u.GetRolesForPrincipalByTenantAndNamespace(principalID, svr.tenant, svr.namespace) {
+			if !(d.NamespaceID != nil && svr.namespace != d.NamespaceID) {
+				roles = append(roles, d.RoleID.(string))
 			}
 		}
 	}
-	*/
+	if tsFlagProvided {
+		for _, d := range u.GetRolesByTenant(svr.tenant) {
+			allowedRoles = append(allowedRoles, d.RoleID.(string))
+		}
+		for _, d := range u.GetRolesForPrincipalByTenantAndScope(principalID, svr.tenant, svr.scope) {
+			if !(d.ScopeID != nil && svr.scope != d.ScopeID) {
+				roles = append(roles, d.RoleID.(string))
+			}
+		}
+	}
+	if nsFlagProvided {
+		for _, t := range u.GetTenants(principalID) {
+			for _, d := range u.GetRolesByTenant(t.TenantID) {
+				allowedRoles = append(allowedRoles, d.RoleID.(string))
+			}
+			for _, d := range u.GetRolesForPrincipalByTenantNamespaceAndScope(principalID, t.TenantID, svr.namespace, svr.scope) {
+				if !((d.NamespaceID != nil && svr.namespace != d.NamespaceID) || (d.ScopeID != nil && svr.scope != d.ScopeID)) {
+					roles = append(roles, d.RoleID.(string))
+				}
+			}
+		}
+	}
+	if tnsFlagProvided {
+		for _, d := range u.GetRolesByTenant(svr.tenant) {
+			allowedRoles = append(allowedRoles, d.RoleID.(string))
+		}
+		for _, d := range u.GetRolesForPrincipalByTenantNamespaceAndScope(principalID, svr.tenant, svr.namespace, svr.scope) {
+			if !((d.NamespaceID != nil && svr.namespace != d.NamespaceID) || (d.ScopeID != nil && svr.scope != d.ScopeID)) {
+				roles = append(roles, d.RoleID.(string))
+			}
+		}
+	}
+	if len(roles) == 0 {
+		return false
+	}
+	roles = slices.Compact(roles)
+	allowedRoles = slices.Compact(allowedRoles)
+	for _, r := range roles {
+		if role, ex := u.roles.Get(r); ex {
+			if role.Has(svr.activityGroup.(string), svr.activity.(string), allowedRoles...) {
+				return true
+			}
+		}
+	}
 	return false
+}
+
+func getNamespaceIDs(rs []*trie.Data) (data []any) {
+	for _, r := range rs {
+		if r.NamespaceID != nil {
+			data = append(data, r.NamespaceID)
+		}
+	}
+	return
+}
+
+func getScopeIDs(rs []*trie.Data) (data []any) {
+	for _, r := range rs {
+		if r.ScopeID != nil {
+			data = append(data, r.ScopeID)
+		}
+	}
+	return
 }
 
 func (u *RoleManager) AddData(tenantID, namespaceID, scopeID, principalID, roleID, canManageDescendants any) {
