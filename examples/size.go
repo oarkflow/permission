@@ -1,19 +1,56 @@
 package main
 
 import (
-	"fmt"
-	"unsafe"
-
 	"github.com/oarkflow/permission/utils"
 )
 
-func main() {
-	s1 := "/coding/:wid/:eid/request-abandon POST /coding/:wid/:eid/request-abandon POST/coding/:wid/:eid/request-abandon POST/coding/:wid/:eid/request-abandon POST/coding/:wid/:eid/request-abandon POST/coding/:wid/:eid/request-abandon POST/coding/:wid/:eid/request-abandon POST/coding/:wid/:eid/request-abandon POST"
-	s2 := "/coding/:wid/:eid/request-abandon POST /coding/:wid/:eid/request-abandon POST/coding/:wid/:eid/request-abandon POST/coding/:wid/:eid/request-abandon POST/coding/:wid/:eid/request-abandon POST/coding/:wid/:eid/request-abandon POST/coding/:wid/:eid/request-abandon POST/coding/:wid/:eid/request-abandon POST"
-	str1TotalSize := unsafe.Sizeof(s1) + uintptr(len(s1))
-	i64S1 := utils.ToInt64(s1)
-	i64S2 := utils.ToInt64(s2)
-	fmt.Printf("Equal %v\n", i64S1 == i64S2)
-	fmt.Printf("Size of string: %d bytes\n", unsafe.Sizeof(i64S1))
-	fmt.Printf("Size of int64: %d bytes\n", str1TotalSize)
+type TenantPrincipal struct {
+	TenantID             string
+	PrincipalID          string
+	RoleID               string
+	NamespaceID          string
+	ScopeID              string
+	CanManageDescendants bool
+}
+
+func UnmarshalTenantPrincipal(data []byte) TenantPrincipal {
+	offset := 0
+	var tp TenantPrincipal
+	tp.TenantID, offset = readString(data, offset)
+	tp.PrincipalID, offset = readString(data, offset)
+	tp.RoleID, offset = readString(data, offset)
+	tp.NamespaceID, offset = readString(data, offset)
+	tp.ScopeID, offset = readString(data, offset)
+	tp.CanManageDescendants = data[offset] == 1
+
+	return tp
+}
+
+func readString(data []byte, offset int) (string, int) {
+	length := int(data[offset]) | int(data[offset+1])<<8
+	offset += 2
+	return utils.FromByte(data[offset : offset+length]), offset + length
+}
+
+// MarshalTenantPrincipal encodes a TenantPrincipal into a binary string.
+func MarshalTenantPrincipal(tp TenantPrincipal) ([]byte, error) {
+	buffer := make([]byte, 0, 2*5+len(tp.TenantID)+len(tp.PrincipalID)+len(tp.RoleID)+len(tp.NamespaceID)+len(tp.ScopeID)+1)
+	buffer = writeString(buffer, tp.TenantID)
+	buffer = writeString(buffer, tp.PrincipalID)
+	buffer = writeString(buffer, tp.RoleID)
+	buffer = writeString(buffer, tp.NamespaceID)
+	buffer = writeString(buffer, tp.ScopeID)
+	if tp.CanManageDescendants {
+		buffer = append(buffer, 1)
+	} else {
+		buffer = append(buffer, 0)
+	}
+	return buffer, nil
+}
+
+func writeString(buffer []byte, s string) []byte {
+	length := uint16(len(s))
+	buffer = append(buffer, byte(length), byte(length>>8))
+	buffer = append(buffer, s...)
+	return buffer
 }

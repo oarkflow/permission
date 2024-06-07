@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"hash/fnv"
 	"strings"
+	"unsafe"
 )
 
 func ToString(val any) string {
@@ -11,7 +12,7 @@ func ToString(val any) string {
 	case string:
 		return val
 	case []byte:
-		return string(val)
+		return FromByte(val)
 	case nil:
 		return ""
 	case fmt.Stringer:
@@ -82,4 +83,43 @@ func MatchResource(value, pattern string) bool {
 
 	// If both value and pattern are exhausted, return true
 	return vIndex == vLen && pIndex == pLen
+}
+
+// ToByte converts a string to a byte slice without memory allocation.
+// NOTE: The returned byte slice MUST NOT be modified since it shares the same backing array
+// with the given string.
+func ToByte(s string) []byte {
+	p := unsafe.StringData(s)
+	b := unsafe.Slice(p, len(s))
+	return b
+}
+
+// FromByte converts bytes to a string without memory allocation.
+// NOTE: The given bytes MUST NOT be modified since they share the same backing array
+// with the returned string.
+func FromByte(b []byte) string {
+	// Ignore if your IDE shows an error here; it's a false positive.
+	p := unsafe.SliceData(b)
+	return unsafe.String(p, len(b))
+}
+
+func Compact(slice []any) []any {
+	keys := make(map[any]struct{})
+	result := []any{}
+	for _, item := range slice {
+		if _, exists := keys[item]; !exists {
+			keys[item] = struct{}{}
+			result = append(result, item)
+		}
+	}
+	return result
+}
+
+func Contains(slice []interface{}, elem interface{}) bool {
+	for _, v := range slice {
+		if v == elem {
+			return true
+		}
+	}
+	return false
 }
