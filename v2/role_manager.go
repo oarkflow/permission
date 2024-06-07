@@ -77,6 +77,19 @@ func (u *RoleManager) GetNamespacesByPrincipal(principalID any) (data []any) {
 	return
 }
 
+func (u *RoleManager) GetNamespacesForPrincipalByTenant(principalID, tenantID any) (data []any) {
+	tenants := u.GetTenantsByPrincipal(principalID)
+	if !utils.Contains(tenants, tenantID) {
+		return
+	}
+	rss := u.trie.SearchFunc(trie.Data{TenantID: tenantID, PrincipalID: principalID}, filterNamespaceForPrincipalByTenant)
+	for _, rs := range rss {
+		data = append(data, rs.NamespaceID)
+	}
+	data = utils.Compact(data)
+	return
+}
+
 func (u *RoleManager) GetNamespacesByTenant(tenantID any) (data []any) {
 	rss := u.trie.SearchFunc(trie.Data{TenantID: tenantID}, filterNamespaceByTenant)
 	for _, rs := range rss {
@@ -96,6 +109,10 @@ func (u *RoleManager) GetScopesByTenant(tenantID any) (data []any) {
 }
 
 func (u *RoleManager) GetScopesForPrincipalByTenant(principalID, tenantID any) (data []any) {
+	tenants := u.GetTenantsByPrincipal(principalID)
+	if !utils.Contains(tenants, tenantID) {
+		return
+	}
 	rss := u.trie.SearchFunc(trie.Data{TenantID: tenantID, PrincipalID: principalID}, filterScopeForPrincipalByTenant)
 	for _, rs := range rss {
 		data = append(data, rs.ScopeID)
@@ -116,16 +133,11 @@ func (u *RoleManager) GetScopeForPrincipalByNamespace(principalID, namespaceID a
 	return
 }
 
-func (u *RoleManager) GetNamespacesForPrincipalByTenant(principalID, tenantID any) (data []any) {
-	rss := u.trie.SearchFunc(trie.Data{TenantID: tenantID, PrincipalID: principalID}, filterNamespaceForPrincipalByTenant)
-	for _, rs := range rss {
-		data = append(data, rs.NamespaceID)
-	}
-	data = utils.Compact(data)
-	return
-}
-
 func (u *RoleManager) GetScopesForPrincipalByTenantAndNamespace(principalID, tenantID, namespaceID any) (data []any) {
+	tenants := u.GetTenantsByPrincipal(principalID)
+	if !utils.Contains(tenants, tenantID) {
+		return
+	}
 	rss := u.trie.SearchFunc(trie.Data{PrincipalID: principalID, TenantID: tenantID, NamespaceID: namespaceID}, filterScopeForPrincipalByTenantAndNamespace)
 	for _, rs := range rss {
 		data = append(data, rs.ScopeID)
@@ -144,6 +156,10 @@ func (u *RoleManager) GetNamespaceByTenant(tenantID any) (data []any) {
 }
 
 func (u *RoleManager) GetNamespaceForPrincipalByTenant(principalID, tenantID any) (data []any) {
+	tenants := u.GetTenantsByPrincipal(principalID)
+	if !utils.Contains(tenants, tenantID) {
+		return
+	}
 	rss := u.trie.SearchFunc(trie.Data{TenantID: tenantID, PrincipalID: principalID}, filterNamespaceForPrincipalByTenant)
 	for _, rs := range rss {
 		data = append(data, rs.NamespaceID)

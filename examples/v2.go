@@ -22,11 +22,16 @@ func main() {
 
 	principalA := authorizer.AddPrincipal(permission.NewPrincipal("principalA"))
 
-	// tenantA.AddPrincipal(principalA.ID(), coder.ID())
-	// tenantA.AssignScopesToPrincipal(principalA.ID(), e29.ID())
+	tenantA.AddPrincipal(principalA.ID(), coder.ID())
+	tenantA.AssignScopesToPrincipal(principalA.ID(), e29.ID())
 
 	fmt.Println("R:", authorizer.Authorize(principalA.ID(),
 		permission.WithTenant("TenantA"),
+		permission.WithNamespace("NamespaceA"),
+		permission.WithScope(e29.ID()),
+	), "E:", true)
+	fmt.Println("R:", authorizer.Authorize(principalA.ID(),
+		permission.WithTenant("TenantB"),
 		permission.WithNamespace("NamespaceA"),
 		permission.WithScope(e29.ID()),
 	), "E:", false)
