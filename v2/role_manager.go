@@ -47,6 +47,15 @@ func (u *RoleManager) GetTenantsByPrincipal(principalID any) (data []any) {
 	return
 }
 
+func (u *RoleManager) GetTenants(principalID any) map[string]*trie.Data {
+	data := make(map[string]*trie.Data)
+	rss := u.trie.SearchFunc(trie.Data{PrincipalID: principalID}, filterTenantsByPrincipal)
+	for _, rs := range rss {
+		data[rs.TenantID.(string)] = rs
+	}
+	return data
+}
+
 func (u *RoleManager) GetScopesByPrincipal(principalID any) (data []any) {
 	rss := u.trie.SearchFunc(trie.Data{PrincipalID: principalID}, filterScopeByPrincipal)
 	for _, rs := range rss {
@@ -95,7 +104,46 @@ func (u *RoleManager) GetScopesForPrincipalByTenant(principalID, tenantID any) (
 	return
 }
 
+func (u *RoleManager) GetScopeForPrincipalByNamespace(principalID, namespaceID any) (data []any) {
+	tenants := u.GetTenantsByPrincipal(principalID)
+	for _, tenant := range tenants {
+		rss := u.trie.SearchFunc(trie.Data{PrincipalID: principalID, TenantID: tenant, NamespaceID: namespaceID}, filterScopeForPrincipalByTenantAndNamespace)
+		for _, rs := range rss {
+			data = append(data, rs.ScopeID)
+		}
+	}
+	data = utils.Compact(data)
+	return
+}
+
 func (u *RoleManager) GetNamespacesForPrincipalByTenant(principalID, tenantID any) (data []any) {
+	rss := u.trie.SearchFunc(trie.Data{TenantID: tenantID, PrincipalID: principalID}, filterNamespaceForPrincipalByTenant)
+	for _, rs := range rss {
+		data = append(data, rs.NamespaceID)
+	}
+	data = utils.Compact(data)
+	return
+}
+
+func (u *RoleManager) GetScopesForPrincipalByTenantAndNamespace(principalID, tenantID, namespaceID any) (data []any) {
+	rss := u.trie.SearchFunc(trie.Data{PrincipalID: principalID, TenantID: tenantID, NamespaceID: namespaceID}, filterScopeForPrincipalByTenantAndNamespace)
+	for _, rs := range rss {
+		data = append(data, rs.ScopeID)
+	}
+	data = utils.Compact(data)
+	return
+}
+
+func (u *RoleManager) GetNamespaceByTenant(tenantID any) (data []any) {
+	rss := u.trie.SearchFunc(trie.Data{TenantID: tenantID}, filterNamespaceByTenant)
+	for _, rs := range rss {
+		data = append(data, rs.NamespaceID)
+	}
+	data = utils.Compact(data)
+	return
+}
+
+func (u *RoleManager) GetNamespaceForPrincipalByTenant(principalID, tenantID any) (data []any) {
 	rss := u.trie.SearchFunc(trie.Data{TenantID: tenantID, PrincipalID: principalID}, filterNamespaceForPrincipalByTenant)
 	for _, rs := range rss {
 		data = append(data, rs.NamespaceID)
@@ -117,21 +165,26 @@ func (u *RoleManager) Authorize(principalID string, options ...func(*Option)) bo
 	tnFlagProvided := svr.tenant != nil && svr.namespace != nil && svr.scope == nil
 	tsFlagProvided := svr.tenant != nil && svr.namespace == nil && svr.scope != nil
 	tnsFlagProvided := svr.tenant != nil && svr.namespace != nil && svr.scope != nil
+	nsFlagProvided := svr.tenant == nil && svr.namespace != nil && svr.scope != nil
 	if noActivity {
 		if tFlagProvided {
-			tenants := u.GetImplicitTenantsByPrincipal(principalID)
+			tenants := u.GetTenantsByPrincipal(principalID)
 			return utils.Contains(tenants, svr.tenant)
 		}
 		if tnFlagProvided {
-			nms := u.GetImplicitNamespaceForPrincipalByTenant(principalID, svr.tenant)
+			nms := u.GetNamespaceForPrincipalByTenant(principalID, svr.tenant)
 			return utils.Contains(nms, svr.namespace)
 		}
 		if tsFlagProvided {
-			nms := u.GetImplicitScopesForPrincipalByTenant(principalID, svr.tenant)
+			nms := u.GetScopesForPrincipalByTenant(principalID, svr.tenant)
+			return utils.Contains(nms, svr.scope)
+		}
+		if nsFlagProvided {
+			nms := u.GetScopeForPrincipalByNamespace(principalID, svr.namespace)
 			return utils.Contains(nms, svr.scope)
 		}
 		if tnsFlagProvided {
-			nms := u.GetImplicitScopesForPrincipalByTenantAndNamespace(principalID, svr.tenant, svr.namespace)
+			nms := u.GetScopesForPrincipalByTenantAndNamespace(principalID, svr.tenant, svr.namespace)
 			return utils.Contains(nms, svr.scope)
 		}
 	}

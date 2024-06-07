@@ -38,23 +38,14 @@ func (u *RoleManager) GetImplicitScopesByPrincipal(principalID any) (data []any)
 
 func (u *RoleManager) GetImplicitScopesForPrincipalByTenantAndNamespace(principalID, tenantID, namespaceID any) (data []any) {
 	rss := u.trie.SearchFunc(trie.Data{PrincipalID: principalID, TenantID: tenantID, NamespaceID: namespaceID}, filterScopeForPrincipalByTenantAndNamespace)
-	if len(rss) > 0 {
-		for _, rs := range rss {
-			data = append(data, rs.ScopeID)
-			if rs.CanManageDescendants != nil && rs.CanManageDescendants.(bool) {
-				if ten, ok := u.tenants.Get(rs.TenantID.(string)); ok {
-					ten.descendants.ForEach(func(id string, _ *Tenant) bool {
-						data = append(data, u.GetImplicitScopesForPrincipalByTenantAndNamespace(principalID, id, namespaceID)...)
-						return true
-					})
-				}
-			}
-		}
-	} else {
-		tenants := u.GetImplicitTenantsByPrincipal(principalID)
-		for _, tenant := range tenants {
-			if tenant != tenantID {
-				data = append(data, u.GetImplicitScopesForPrincipalByTenantAndNamespace(principalID, tenant, namespaceID)...)
+	for _, rs := range rss {
+		data = append(data, rs.ScopeID)
+		if rs.CanManageDescendants != nil && rs.CanManageDescendants.(bool) {
+			if ten, ok := u.tenants.Get(rs.TenantID.(string)); ok {
+				ten.descendants.ForEach(func(id string, _ *Tenant) bool {
+					data = append(data, u.GetImplicitScopesForPrincipalByTenantAndNamespace(principalID, id, namespaceID)...)
+					return true
+				})
 			}
 		}
 	}
@@ -93,23 +84,14 @@ func (u *RoleManager) GetImplicitNamespaceByTenant(tenantID any) (data []any) {
 
 func (u *RoleManager) GetImplicitNamespaceForPrincipalByTenant(principalID, tenantID any) (data []any) {
 	rss := u.trie.SearchFunc(trie.Data{TenantID: tenantID, PrincipalID: principalID}, filterNamespaceForPrincipalByTenant)
-	if len(rss) > 0 {
-		for _, rs := range rss {
-			data = append(data, rs.NamespaceID)
-			if rs.CanManageDescendants != nil && rs.CanManageDescendants.(bool) {
-				if ten, ok := u.tenants.Get(tenantID.(string)); ok {
-					ten.descendants.ForEach(func(id string, _ *Tenant) bool {
-						data = append(data, u.GetImplicitNamespaceForPrincipalByTenant(principalID, id)...)
-						return true
-					})
-				}
-			}
-		}
-	} else {
-		tenants := u.GetImplicitTenantsByPrincipal(principalID)
-		for _, tenant := range tenants {
-			if tenant != tenantID {
-				data = append(data, u.GetImplicitNamespaceForPrincipalByTenant(principalID, tenant)...)
+	for _, rs := range rss {
+		data = append(data, rs.NamespaceID)
+		if rs.CanManageDescendants != nil && rs.CanManageDescendants.(bool) {
+			if ten, ok := u.tenants.Get(tenantID.(string)); ok {
+				ten.descendants.ForEach(func(id string, _ *Tenant) bool {
+					data = append(data, u.GetImplicitNamespaceForPrincipalByTenant(principalID, id)...)
+					return true
+				})
 			}
 		}
 	}

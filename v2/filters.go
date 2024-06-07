@@ -39,6 +39,13 @@ func filterScopeForPrincipalByTenant(filter *trie.Data, row *trie.Data) bool {
 	return (row.TenantID == filter.TenantID && row.PrincipalID == nil) || (row.TenantID == filter.TenantID && row.PrincipalID == filter.PrincipalID)
 }
 
+func filterScopeForPrincipalByNamespace(filter *trie.Data, row *trie.Data) bool {
+	if (filter.NamespaceID == nil && filter.PrincipalID == nil) || row.ScopeID == nil {
+		return false
+	}
+	return (row.TenantID != nil && row.PrincipalID == nil) || (row.TenantID == filter.TenantID && row.PrincipalID == filter.PrincipalID)
+}
+
 func filterScopeForPrincipalByTenantAndNamespace(filter *trie.Data, row *trie.Data) bool {
 	if (filter.TenantID == nil && filter.PrincipalID == nil && filter.NamespaceID == nil) || row.ScopeID == nil {
 		return false

@@ -1,6 +1,7 @@
 package trie
 
 import (
+	"fmt"
 	"sync"
 )
 
@@ -11,6 +12,12 @@ type Data struct {
 	PrincipalID          any
 	RoleID               any
 	CanManageDescendants any
+}
+
+func (data Data) ToString() string {
+	return fmt.Sprintf("%v-%v-%v-%v-%v-%v",
+		data.TenantID, data.NamespaceID, data.ScopeID,
+		data.PrincipalID, data.RoleID, data.CanManageDescendants)
 }
 
 type SearchFunc func(filer *Data, row *Data) bool
@@ -124,11 +131,7 @@ func match(filter *Data, node *Data) bool {
 	return true
 }
 
-/*func Key(data *Data) string {
-	return fmt.Sprintf("%v-%v-%v-%v-%v-%v",
-		data.TenantID, data.NamespaceID, data.ScopeID,
-		data.PrincipalID, data.RoleID, data.CanManageDescendants)
-}
+/*
 
 func RemoveDuplicates(data []*Data) []*Data {
 	filter := make(map[string]struct{})
