@@ -3,28 +3,13 @@ package trie
 import (
 	"reflect"
 	"sync"
+
+	"github.com/oarkflow/permission/utils"
 )
 
 type DataProps any
 
 type SearchFunc[T DataProps] func(filter *T, row *T) bool
-
-func IsNil(value any) bool {
-	return value == nil
-}
-
-func MatchesFilter(value, filter any) bool {
-	return !IsNil(filter) && value == filter
-}
-
-func FilterByFields[T DataProps](filter *T, row *T, fields ...func(*T) any) bool {
-	for _, field := range fields {
-		if IsNil(field(row)) || !MatchesFilter(field(row), field(filter)) {
-			return false
-		}
-	}
-	return true
-}
 
 type Node[T DataProps] struct {
 	mu    sync.RWMutex
@@ -69,20 +54,32 @@ func New[T DataProps](match SearchFunc[T]) *Trie[T] {
 	}
 }
 
+func (t *Trie[T]) search(filter *T, callback SearchFunc[T]) []*T {
+	results := t.dataSlice.Get().(*[]*T)
+	defer t.dataSlice.Put(results)
+	*results = (*results)[:0]
+	t.searchRecursiveFunc(t.root, filter, callback, results)
+	return *results
+}
+
+func (t *Trie[T]) first(filter *T, callback SearchFunc[T]) *T {
+	results := t.dataSlice.Get().(*[]*T)
+	defer t.dataSlice.Put(results)
+	*results = (*results)[:0]
+	t.firstRecursiveFunc(t.root, filter, callback, results)
+	if len(*results) > 0 {
+		return (*results)[0]
+	}
+	return nil
+}
+
+func (t *Trie[T]) Data() []*T {
+	return t.search(nil, func(f *T, n *T) bool { return true })
+}
+
 func (t *Trie[T]) Insert(tp *T) {
 	node := t.root
-	v := reflect.ValueOf(*tp)
-	fields := make([]any, 0)
-	switch v.Kind() {
-	case reflect.Struct:
-		for i := 0; i < v.NumField(); i++ {
-			fields = append(fields, v.Field(i).Interface())
-		}
-	case reflect.Map:
-		for _, key := range v.MapKeys() {
-			fields = append(fields, v.MapIndex(key).Interface())
-		}
-	}
+	fields := utils.GetFields(reflect.ValueOf(*tp))
 	for _, field := range fields {
 		child, _ := node.getChild(field)
 		if child == nil {
@@ -94,28 +91,20 @@ func (t *Trie[T]) Insert(tp *T) {
 	node.data = tp
 }
 
-func (t *Trie[T]) Data() []*T {
-	results := t.dataSlice.Get().(*[]*T)
-	defer t.dataSlice.Put(results)
-	*results = (*results)[:0]
-	t.searchRecursiveFunc(t.root, nil, func(f *T, n *T) bool { return true }, results)
-	return *results
+func (t *Trie[T]) First(filter *T) *T {
+	return t.first(filter, t.match)
+}
+
+func (t *Trie[T]) FirstFunc(filter *T, callback SearchFunc[T]) *T {
+	return t.first(filter, callback)
 }
 
 func (t *Trie[T]) Search(filter *T) []*T {
-	results := t.dataSlice.Get().(*[]*T)
-	defer t.dataSlice.Put(results)
-	*results = (*results)[:0]
-	t.searchRecursiveFunc(t.root, filter, t.match, results)
-	return *results
+	return t.search(filter, t.match)
 }
 
 func (t *Trie[T]) SearchFunc(filter *T, callback SearchFunc[T]) []*T {
-	results := t.dataSlice.Get().(*[]*T)
-	defer t.dataSlice.Put(results)
-	*results = (*results)[:0]
-	t.searchRecursiveFunc(t.root, filter, callback, results)
-	return *results
+	return t.search(filter, callback)
 }
 
 func (t *Trie[T]) searchRecursiveFunc(node *Node[T], filter *T, callback SearchFunc[T], results *[]*T) {
@@ -125,28 +114,6 @@ func (t *Trie[T]) searchRecursiveFunc(node *Node[T], filter *T, callback SearchF
 	for _, child := range node.child {
 		t.searchRecursiveFunc(child, filter, callback, results)
 	}
-}
-
-func (t *Trie[T]) First(filter T) *T {
-	results := t.dataSlice.Get().(*[]*T)
-	defer t.dataSlice.Put(results)
-	*results = (*results)[:0]
-	t.firstRecursiveFunc(t.root, &filter, t.match, results)
-	if len(*results) > 0 {
-		return (*results)[0]
-	}
-	return nil
-}
-
-func (t *Trie[T]) FirstFunc(filter T, callback SearchFunc[T]) *T {
-	results := t.dataSlice.Get().(*[]*T)
-	defer t.dataSlice.Put(results)
-	*results = (*results)[:0]
-	t.firstRecursiveFunc(t.root, &filter, callback, results)
-	if len(*results) > 0 {
-		return (*results)[0]
-	}
-	return nil
 }
 
 func (t *Trie[T]) firstRecursiveFunc(node *Node[T], filter *T, callback SearchFunc[T], results *[]*T) {

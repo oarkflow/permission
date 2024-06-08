@@ -27,7 +27,7 @@ func (u *RoleManager) GetTenants(principalID any) (data []*Data) {
 }
 
 func (u *RoleManager) GetDescendantTenant(desc any) *Data {
-	return u.trie.First(Data{TenantID: desc})
+	return u.trie.First(&Data{TenantID: desc})
 }
 
 func (u *RoleManager) GetImplicitTenants(principalID any) (data []*Data) {
