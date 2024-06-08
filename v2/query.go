@@ -7,11 +7,15 @@ import (
 
 // SearchFuncWrapper simplifies the search and data extraction process.
 func (u *RoleManager) SearchFuncWrapper(filter trie.Data, filterFunc func(*trie.Data, *trie.Data) bool, extractFunc func(*trie.Data) any) (data []any) {
-	results := u.trie.SearchFunc(filter, filterFunc)
+	results := u.search(filter, filterFunc)
 	for _, result := range results {
 		data = append(data, extractFunc(result))
 	}
 	return utils.Compact(data)
+}
+
+func (u *RoleManager) search(filter trie.Data, filterFunc func(*trie.Data, *trie.Data) bool) []*trie.Data {
+	return u.trie.SearchFunc(filter, filterFunc)
 }
 
 func (u *RoleManager) GetTenantsByPrincipal(principalID any) (data []any) {
@@ -19,7 +23,7 @@ func (u *RoleManager) GetTenantsByPrincipal(principalID any) (data []any) {
 }
 
 func (u *RoleManager) GetTenants(principalID any) (data []*trie.Data) {
-	results := u.trie.SearchFunc(trie.Data{PrincipalID: principalID}, filterTenantsByPrincipal)
+	results := u.search(trie.Data{PrincipalID: principalID}, filterTenantsByPrincipal)
 	return results
 }
 
@@ -28,7 +32,7 @@ func (u *RoleManager) GetDescendentTenant(desc any) *trie.Data {
 }
 
 func (u *RoleManager) GetImplicitTenants(principalID any) (data []*trie.Data) {
-	results := u.trie.SearchFunc(trie.Data{PrincipalID: principalID}, filterTenantsByPrincipal)
+	results := u.search(trie.Data{PrincipalID: principalID}, filterTenantsByPrincipal)
 	existingTenant := make(map[string]*trie.Data)
 
 	for _, rs := range results {
@@ -64,12 +68,12 @@ func (u *RoleManager) GetImplicitTenants(principalID any) (data []*trie.Data) {
 }
 
 func (u *RoleManager) GetScopesByPrincipal(principalID any) (data []*trie.Data) {
-	results := u.trie.SearchFunc(trie.Data{PrincipalID: principalID}, filterScopeByPrincipal)
+	results := u.search(trie.Data{PrincipalID: principalID}, filterScopeByPrincipal)
 	return results
 }
 
 func (u *RoleManager) GetRolesByTenant(tenantID any) (data []*trie.Data) {
-	results := u.trie.SearchFunc(trie.Data{TenantID: tenantID}, filterRoleByTenant)
+	results := u.search(trie.Data{TenantID: tenantID}, filterRoleByTenant)
 	return results
 }
 
@@ -82,81 +86,54 @@ func (u *RoleManager) GetNamespacesByPrincipal(principalID any) (data []*trie.Da
 }
 
 func (u *RoleManager) GetNamespacesForPrincipalByTenant(principalID, tenantID any) (data []*trie.Data) {
-	if !utils.Contains(u.GetTenantsByPrincipal(principalID), tenantID) {
-		return nil
-	}
-	results := u.trie.SearchFunc(trie.Data{TenantID: tenantID, PrincipalID: principalID}, filterNamespaceForPrincipalByTenant)
+	results := u.search(trie.Data{TenantID: tenantID, PrincipalID: principalID}, filterNamespaceForPrincipalByTenant)
 	return results
 }
 
 func (u *RoleManager) GetNamespacesByTenant(tenantID any) (data []*trie.Data) {
-	results := u.trie.SearchFunc(trie.Data{TenantID: tenantID}, filterNamespaceByTenant)
+	results := u.search(trie.Data{TenantID: tenantID}, filterNamespaceByTenant)
 	return results
 }
 
 func (u *RoleManager) GetScopesByTenant(tenantID any) (data []*trie.Data) {
-	results := u.trie.SearchFunc(trie.Data{TenantID: tenantID}, filterScopeByTenant)
+	results := u.search(trie.Data{TenantID: tenantID}, filterScopeByTenant)
 	return results
 }
 
 func (u *RoleManager) GetScopesForPrincipalByTenant(principalID, tenantID any) (data []*trie.Data) {
-	if !utils.Contains(u.GetTenantsByPrincipal(principalID), tenantID) {
-		return nil
-	}
-	results := u.trie.SearchFunc(trie.Data{TenantID: tenantID, PrincipalID: principalID}, filterScopeForPrincipalByTenant)
+	results := u.search(trie.Data{TenantID: tenantID, PrincipalID: principalID}, filterScopeForPrincipalByTenant)
 	return results
 }
 
 func (u *RoleManager) GetScopeForPrincipalByNamespace(principalID, namespaceID any) (data []*trie.Data) {
 	tenants := u.GetTenantsByPrincipal(principalID)
 	for _, tenant := range tenants {
-		results := u.trie.SearchFunc(trie.Data{PrincipalID: principalID, TenantID: tenant, NamespaceID: namespaceID}, filterScopeForPrincipalByTenantAndNamespace)
+		results := u.search(trie.Data{PrincipalID: principalID, TenantID: tenant, NamespaceID: namespaceID}, filterScopeForPrincipalByTenantAndNamespace)
 		data = append(data, results...)
 	}
 	return data
 }
 
 func (u *RoleManager) GetScopesForPrincipalByTenantAndNamespace(principalID, tenantID, namespaceID any) (data []*trie.Data) {
-	if !utils.Contains(u.GetTenantsByPrincipal(principalID), tenantID) {
-		return nil
-	}
-	results := u.trie.SearchFunc(trie.Data{PrincipalID: principalID, TenantID: tenantID, NamespaceID: namespaceID}, filterScopeForPrincipalByTenantAndNamespace)
-	return results
+	return u.search(trie.Data{PrincipalID: principalID, TenantID: tenantID, NamespaceID: namespaceID}, filterScopeForPrincipalByTenantAndNamespace)
 }
 
 func (u *RoleManager) GetRolesForPrincipalByTenantNamespaceAndScope(principalID, tenantID, namespaceID, scope any) (data []*trie.Data) {
-	if !utils.Contains(u.GetTenantsByPrincipal(principalID), tenantID) {
-		return nil
-	}
-	results := u.trie.SearchFunc(trie.Data{PrincipalID: principalID, TenantID: tenantID, NamespaceID: namespaceID, ScopeID: scope}, filterRoleForPrincipalByTenantNamespaceAndScope)
-	return results
+	return u.search(trie.Data{PrincipalID: principalID, TenantID: tenantID, NamespaceID: namespaceID, ScopeID: scope}, filterRoleForPrincipalByTenantNamespaceAndScope)
 }
 
 func (u *RoleManager) GetRolesForPrincipalByTenantAndNamespace(principalID, tenantID, namespaceID any) (data []*trie.Data) {
-	if !utils.Contains(u.GetTenantsByPrincipal(principalID), tenantID) {
-		return nil
-	}
-	results := u.trie.SearchFunc(trie.Data{PrincipalID: principalID, TenantID: tenantID, NamespaceID: namespaceID}, filterRoleForPrincipalByTenantAndNamespace)
-	return results
+	return u.search(trie.Data{PrincipalID: principalID, TenantID: tenantID, NamespaceID: namespaceID}, filterRoleForPrincipalByTenantAndNamespace)
 }
 
 func (u *RoleManager) GetRolesForPrincipalByTenantAndScope(principalID, tenantID, scopeID any) (data []*trie.Data) {
-	if !utils.Contains(u.GetTenantsByPrincipal(principalID), tenantID) {
-		return nil
-	}
-	results := u.trie.SearchFunc(trie.Data{PrincipalID: principalID, TenantID: tenantID, ScopeID: scopeID}, filterRoleForPrincipalByTenantAndScope)
-	return results
+	return u.search(trie.Data{PrincipalID: principalID, TenantID: tenantID, ScopeID: scopeID}, filterRoleForPrincipalByTenantAndScope)
 }
 
 func (u *RoleManager) GetNamespaceByTenant(tenantID any) (data []*trie.Data) {
-	results := u.trie.SearchFunc(trie.Data{TenantID: tenantID}, filterNamespaceByTenant)
-	return results
+	return u.search(trie.Data{TenantID: tenantID}, filterNamespaceByTenant)
 }
 
 func (u *RoleManager) GetNamespaceForPrincipalByTenant(principalID, tenantID any) (data []*trie.Data) {
-	if !utils.Contains(u.GetTenantsByPrincipal(principalID), tenantID) {
-		return nil
-	}
-	results := u.trie.SearchFunc(trie.Data{TenantID: tenantID, PrincipalID: principalID}, filterNamespaceForPrincipalByTenant)
-	return results
+	return u.search(trie.Data{TenantID: tenantID, PrincipalID: principalID}, filterNamespaceForPrincipalByTenant)
 }
