@@ -2,6 +2,7 @@ package v2
 
 import (
 	"errors"
+	"fmt"
 	"slices"
 
 	"github.com/oarkflow/maps"
@@ -189,4 +190,21 @@ func (r *Role) GetPermissions() map[string][]Attribute {
 		return true
 	})
 	return grpPermissions
+}
+
+func (u *RoleManager) AddPermissionsToRole(roleID, attributeGroupID string, attrs ...*Attribute) error {
+	role, ok := u.roles.Get(roleID)
+	if !ok {
+		return errors.New("no role available")
+	}
+	attributeGroup, ok := u.attributeGroups.Get(attributeGroupID)
+	if !ok {
+		return errors.New("no attribute group available")
+	}
+	for _, attr := range attrs {
+		if _, ok := attributeGroup.permissions.Get(attr.String()); !ok {
+			return fmt.Errorf("attribute '%s' not associated to the group '%s'", attr.String(), attributeGroupID)
+		}
+	}
+	return role.AddPermission(attributeGroupID, attrs...)
 }

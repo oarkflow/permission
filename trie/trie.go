@@ -3,6 +3,8 @@ package trie
 import (
 	"fmt"
 	"sync"
+
+	"github.com/oarkflow/permission/utils"
 )
 
 type Data struct {
@@ -21,6 +23,31 @@ func (data Data) ToString() string {
 }
 
 type SearchFunc func(filer *Data, row *Data) bool
+
+func IsNil(value any) bool {
+	return value == nil
+}
+
+func MatchesFilter(value, filter any) bool {
+	if IsNil(filter) {
+		return false
+	}
+	switch filter := filter.(type) {
+	case []any:
+		return utils.Contains(filter, value)
+	default:
+		return value == filter
+	}
+}
+
+func FilterByFields(filter *Data, row *Data, fields ...func(*Data) any) bool {
+	for _, field := range fields {
+		if IsNil(field(row)) || !MatchesFilter(field(row), field(filter)) {
+			return false
+		}
+	}
+	return true
+}
 
 func AddData(tenantID, namespaceID, scopeID, principalID, roleID, canManageDescendants any) Data {
 	return Data{
@@ -140,41 +167,23 @@ func (t *Trie) firstRecursiveFunc(node *Node, filter *Data, callback SearchFunc,
 }
 
 func match(filter *Data, node *Data) bool {
-	if filter.TenantID != nil && filter.TenantID != node.TenantID {
+	if IsNil(filter.TenantID) && MatchesFilter(node.TenantID, filter.TenantID) {
 		return false
 	}
-	if filter.PrincipalID != nil && filter.PrincipalID != node.PrincipalID {
+	if IsNil(filter.PrincipalID) && MatchesFilter(node.PrincipalID, filter.PrincipalID) {
 		return false
 	}
-	if filter.RoleID != nil && filter.RoleID != node.RoleID {
+	if IsNil(filter.RoleID) && MatchesFilter(node.RoleID, filter.RoleID) {
 		return false
 	}
-	if filter.NamespaceID != nil && filter.NamespaceID != node.NamespaceID {
+	if IsNil(filter.NamespaceID) && MatchesFilter(node.NamespaceID, filter.NamespaceID) {
 		return false
 	}
-	if filter.ScopeID != nil && filter.ScopeID != node.ScopeID {
+	if IsNil(filter.ScopeID) && MatchesFilter(node.ScopeID, filter.ScopeID) {
 		return false
 	}
-	if filter.CanManageDescendants != nil && filter.CanManageDescendants != node.CanManageDescendants {
+	if IsNil(filter.CanManageDescendants) && filter.CanManageDescendants != node.CanManageDescendants {
 		return false
 	}
 	return true
 }
-
-/*
-
-func RemoveDuplicates(data []*Data) []*Data {
-	filter := make(map[string]struct{})
-	result := make([]*Data, 0, len(data))
-
-	for _, d := range data {
-		k := Key(d)
-		if _, ok := filter[k]; !ok {
-			filter[k] = struct{}{}
-			result = append(result, d)
-		}
-	}
-
-	return result
-}
-*/

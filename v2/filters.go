@@ -4,100 +4,83 @@ import (
 	"github.com/oarkflow/permission/trie"
 )
 
-func isNil(value any) bool {
-	return value == nil
-}
-
-func matchesFilter(value, filter any) bool {
-	return !isNil(filter) && value == filter
-}
-
-func filterByFields(filter *trie.Data, row *trie.Data, fields ...func(*trie.Data) any) bool {
-	for _, field := range fields {
-		if isNil(field(row)) || !matchesFilter(field(row), field(filter)) {
-			return false
-		}
-	}
-	return true
-}
-
 func filterTenantsByPrincipal(filter *trie.Data, row *trie.Data) bool {
-	return filterByFields(filter, row, func(d *trie.Data) any { return d.PrincipalID }) && !isNil(row.TenantID)
+	return trie.FilterByFields(filter, row, func(d *trie.Data) any { return d.PrincipalID }) && !trie.IsNil(row.TenantID)
 }
 
 func filterTenant(filter *trie.Data, row *trie.Data) bool {
-	return filterByFields(filter, row, func(d *trie.Data) any { return d.TenantID }) && !isNil(row.TenantID)
+	return trie.FilterByFields(filter, row, func(d *trie.Data) any { return d.TenantID }) && !trie.IsNil(row.TenantID)
 }
 
 func filterScopeByPrincipal(filter *trie.Data, row *trie.Data) bool {
-	return filterByFields(filter, row, func(d *trie.Data) any { return d.PrincipalID }) && !isNil(row.ScopeID) && !isNil(row.TenantID)
+	return trie.FilterByFields(filter, row, func(d *trie.Data) any { return d.PrincipalID }) && !trie.IsNil(row.ScopeID) && !trie.IsNil(row.TenantID)
 }
 
 func filterRoleByTenant(filter *trie.Data, row *trie.Data) bool {
-	return filterByFields(filter, row, func(d *trie.Data) any { return d.TenantID }, func(d *trie.Data) any { return d.RoleID })
+	return trie.FilterByFields(filter, row, func(d *trie.Data) any { return d.TenantID }, func(d *trie.Data) any { return d.RoleID })
 }
 
 func filterNamespaceByTenant(filter *trie.Data, row *trie.Data) bool {
-	return filterByFields(filter, row, func(d *trie.Data) any { return d.TenantID }) && !isNil(row.NamespaceID)
+	return trie.FilterByFields(filter, row, func(d *trie.Data) any { return d.TenantID }) && !trie.IsNil(row.NamespaceID)
 }
 
 func filterScopeByTenant(filter *trie.Data, row *trie.Data) bool {
-	return filterByFields(filter, row, func(d *trie.Data) any { return d.TenantID }) && !isNil(row.ScopeID)
+	return trie.FilterByFields(filter, row, func(d *trie.Data) any { return d.TenantID }) && !trie.IsNil(row.ScopeID)
 }
 
 func filterScopeForPrincipalByTenant(filter *trie.Data, row *trie.Data) bool {
-	if isNil(filter.TenantID) && isNil(filter.PrincipalID) || isNil(row.ScopeID) {
+	if trie.IsNil(filter.TenantID) && trie.IsNil(filter.PrincipalID) || trie.IsNil(row.ScopeID) {
 		return false
 	}
-	return filterByFields(filter, row, func(d *trie.Data) any { return d.TenantID }) && (isNil(row.PrincipalID) || matchesFilter(row.PrincipalID, filter.PrincipalID))
+	return trie.FilterByFields(filter, row, func(d *trie.Data) any { return d.TenantID }) && (trie.IsNil(row.PrincipalID) || trie.MatchesFilter(row.PrincipalID, filter.PrincipalID))
 }
 
 func filterScopeForPrincipalByNamespace(filter *trie.Data, row *trie.Data) bool {
-	if isNil(filter.NamespaceID) && isNil(filter.PrincipalID) || isNil(row.ScopeID) {
+	if trie.IsNil(filter.NamespaceID) && trie.IsNil(filter.PrincipalID) || trie.IsNil(row.ScopeID) {
 		return false
 	}
-	return !isNil(row.TenantID) && (isNil(row.PrincipalID) || matchesFilter(row.PrincipalID, filter.PrincipalID))
+	return !trie.IsNil(row.TenantID) && (trie.IsNil(row.PrincipalID) || trie.MatchesFilter(row.PrincipalID, filter.PrincipalID))
 }
 
 func filterScopeForPrincipalByTenantAndNamespace(filter *trie.Data, row *trie.Data) bool {
-	if isNil(filter.TenantID) && isNil(filter.PrincipalID) && isNil(filter.NamespaceID) || isNil(row.ScopeID) {
+	if trie.IsNil(filter.TenantID) && trie.IsNil(filter.PrincipalID) && trie.IsNil(filter.NamespaceID) || trie.IsNil(row.ScopeID) {
 		return false
 	}
-	return filterByFields(filter, row, func(d *trie.Data) any { return d.TenantID }) &&
-		(isNil(row.NamespaceID) && isNil(row.PrincipalID) ||
-			matchesFilter(row.NamespaceID, filter.NamespaceID) && isNil(row.PrincipalID) ||
-			matchesFilter(row.PrincipalID, filter.PrincipalID))
+	return trie.FilterByFields(filter, row, func(d *trie.Data) any { return d.TenantID }) &&
+		(trie.IsNil(row.NamespaceID) && trie.IsNil(row.PrincipalID) ||
+			trie.MatchesFilter(row.NamespaceID, filter.NamespaceID) && trie.IsNil(row.PrincipalID) ||
+			trie.MatchesFilter(row.PrincipalID, filter.PrincipalID))
 }
 
 func filterRoleForPrincipalByTenantNamespaceAndScope(filter *trie.Data, row *trie.Data) bool {
-	if isNil(filter.TenantID) && isNil(filter.PrincipalID) && isNil(filter.NamespaceID) && isNil(filter.ScopeID) || isNil(row.RoleID) {
+	if trie.IsNil(filter.TenantID) && trie.IsNil(filter.PrincipalID) && trie.IsNil(filter.NamespaceID) && trie.IsNil(filter.ScopeID) || trie.IsNil(row.RoleID) {
 		return false
 	}
-	return filterByFields(filter, row, func(d *trie.Data) any { return d.TenantID }, func(d *trie.Data) any { return d.PrincipalID }) ||
-		(matchesFilter(row.NamespaceID, filter.NamespaceID) && matchesFilter(row.PrincipalID, filter.PrincipalID)) ||
-		(matchesFilter(row.ScopeID, filter.ScopeID) && matchesFilter(row.PrincipalID, filter.PrincipalID))
+	return trie.FilterByFields(filter, row, func(d *trie.Data) any { return d.TenantID }, func(d *trie.Data) any { return d.PrincipalID }) ||
+		(trie.MatchesFilter(row.NamespaceID, filter.NamespaceID) && trie.MatchesFilter(row.PrincipalID, filter.PrincipalID)) ||
+		(trie.MatchesFilter(row.ScopeID, filter.ScopeID) && trie.MatchesFilter(row.PrincipalID, filter.PrincipalID))
 }
 
 func filterRoleForPrincipalByTenantAndNamespace(filter *trie.Data, row *trie.Data) bool {
-	if isNil(filter.TenantID) && isNil(filter.PrincipalID) && isNil(filter.NamespaceID) || isNil(row.RoleID) {
+	if trie.IsNil(filter.TenantID) && trie.IsNil(filter.PrincipalID) && trie.IsNil(filter.NamespaceID) || trie.IsNil(row.RoleID) {
 		return false
 	}
-	return filterByFields(filter, row, func(d *trie.Data) any { return d.TenantID }, func(d *trie.Data) any { return d.PrincipalID }) ||
-		matchesFilter(row.NamespaceID, filter.NamespaceID)
+	return trie.FilterByFields(filter, row, func(d *trie.Data) any { return d.TenantID }, func(d *trie.Data) any { return d.PrincipalID }) ||
+		trie.MatchesFilter(row.NamespaceID, filter.NamespaceID)
 }
 
 func filterRoleForPrincipalByTenantAndScope(filter *trie.Data, row *trie.Data) bool {
-	if isNil(filter.TenantID) && isNil(filter.PrincipalID) && isNil(filter.ScopeID) || isNil(row.RoleID) {
+	if trie.IsNil(filter.TenantID) && trie.IsNil(filter.PrincipalID) && trie.IsNil(filter.ScopeID) || trie.IsNil(row.RoleID) {
 		return false
 	}
-	return filterByFields(filter, row, func(d *trie.Data) any { return d.TenantID }, func(d *trie.Data) any { return d.PrincipalID }) ||
-		matchesFilter(row.ScopeID, filter.ScopeID)
+	return trie.FilterByFields(filter, row, func(d *trie.Data) any { return d.TenantID }, func(d *trie.Data) any { return d.PrincipalID }) ||
+		trie.MatchesFilter(row.ScopeID, filter.ScopeID)
 }
 
 func filterNamespaceForPrincipalByTenant(filter *trie.Data, row *trie.Data) bool {
-	if isNil(filter.TenantID) && isNil(filter.PrincipalID) || isNil(row.NamespaceID) {
+	if trie.IsNil(filter.TenantID) && trie.IsNil(filter.PrincipalID) || trie.IsNil(row.NamespaceID) {
 		return false
 	}
-	return filterByFields(filter, row, func(d *trie.Data) any { return d.TenantID }) &&
-		(isNil(row.PrincipalID) || matchesFilter(row.PrincipalID, filter.PrincipalID))
+	return trie.FilterByFields(filter, row, func(d *trie.Data) any { return d.TenantID }) &&
+		(trie.IsNil(row.PrincipalID) || trie.MatchesFilter(row.PrincipalID, filter.PrincipalID))
 }
