@@ -27,7 +27,7 @@ func (u *RoleManager) GetTenants(principalID any) (data []*trie.Data) {
 	return results
 }
 
-func (u *RoleManager) GetDescendentTenant(desc any) *trie.Data {
+func (u *RoleManager) GetDescendantTenant(desc any) *trie.Data {
 	return u.trie.First(trie.Data{TenantID: desc})
 }
 
@@ -50,7 +50,7 @@ func (u *RoleManager) GetImplicitTenants(principalID any) (data []*trie.Data) {
 		if canManage, ok := rs.CanManageDescendants.(bool); ok && canManage {
 			if tenant, exists := u.tenants.Get(tenantID); exists {
 				for _, desc := range tenant.GetDescendants() {
-					if d := u.GetDescendentTenant(desc); d != nil {
+					if d := u.GetDescendantTenant(desc); d != nil {
 						descendantID, ok := d.TenantID.(string)
 						if ok {
 							existingTenant[descendantID] = d

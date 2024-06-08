@@ -46,7 +46,7 @@ func main() {
 
 	// Search for tenant principals with specific fields
 	tpToSearch := trie.Data{RoleID: "role1", TenantID: "tenant2"}
-	results := t.Search(tpToSearch, true)
+	results := t.Search(tpToSearch)
 	for _, result := range results {
 		fmt.Printf("Found: %+v\n", result)
 	}

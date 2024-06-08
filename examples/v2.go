@@ -112,7 +112,7 @@ func v2myRoles(authorizer *v2.RoleManager) (coder *v2.Role, qa *v2.Role, suspend
 	if err != nil {
 		panic(err)
 	}
-	err = admin.AddDescendent(coder, qa, suspendManager)
+	err = admin.AddDescendant(coder, qa, suspendManager)
 	if err != nil {
 		panic(err)
 	}

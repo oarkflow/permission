@@ -100,8 +100,8 @@ func (r *Role) GetDescendantRoles() []*Role {
 	return descendants
 }
 
-// AddDescendent adds a new permission to the role
-func (r *Role) AddDescendent(descendants ...*Role) error {
+// AddDescendant adds a new permission to the role
+func (r *Role) AddDescendant(descendants ...*Role) error {
 	if r.lock {
 		return errors.New("changes not allowed")
 	}

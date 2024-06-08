@@ -80,7 +80,7 @@ func myRoles() (coder *permission.Role, qa *permission.Role, suspendManager *per
 		{"/admin/principal/edit", "PUT"},
 	}
 	admin.AddPermission("route", perm...)
-	admin.AddDescendent(coder, qa, suspendManager)
+	admin.AddDescendant(coder, qa, suspendManager)
 	return
 }
 

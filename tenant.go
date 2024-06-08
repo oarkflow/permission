@@ -28,8 +28,8 @@ func (c *Tenant) GetDescendantTenants() []*Tenant {
 	return descendants
 }
 
-// AddDescendent adds a new permission to the role
-func (c *Tenant) AddDescendent(descendants ...*Tenant) error {
+// AddDescendant adds a new permission to the role
+func (c *Tenant) AddDescendant(descendants ...*Tenant) error {
 	for _, descendant := range descendants {
 		if _, ok := c.descendants.Get(descendant.id); !ok {
 			c.descendants.Set(descendant.id, descendant)
