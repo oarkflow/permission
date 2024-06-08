@@ -18,18 +18,19 @@ func main() {
 	coder, qa, suspendManager, _ := v2myRoles(authorizer)
 	tenantA.AddRoles(coder, qa, suspendManager)
 	e29 := authorizer.AddScope(v2.NewScope("EntityA"))
+	e30 := authorizer.AddScope(v2.NewScope("EntityB"))
 	tenantA.AddScopes(e29)
+	tenantB.AddScopes(e30)
 
 	principalA := authorizer.AddPrincipal(v2.NewPrincipal("principalA"))
 
-	tenantA.AddPrincipal(principalA.ID(), coder.ID())
-	tenantA.AssignScopesToPrincipal(principalA.ID(), e29.ID())
+	tenantA.AddPrincipal(principalA.ID(), true, coder.ID())
+	tenantA.AssignScopesToPrincipal(principalA.ID(), true, e29.ID())
 	fmt.Println("R:", authorizer.Authorize(principalA.ID(),
 		v2.WithTenant("TenantA"),
 		v2.WithNamespace("NamespaceA"),
 		v2.WithScope(e29.ID()),
 	), "E:", true)
-
 	fmt.Println("R:", authorizer.Authorize(principalA.ID(),
 		v2.WithTenant("TenantA"),
 		v2.WithNamespace("NamespaceA"),
@@ -53,6 +54,13 @@ func main() {
 		v2.WithTenant("TenantB"),
 		v2.WithNamespace("NamespaceA"),
 		v2.WithScope(e29.ID()),
+		v2.WithAttributeGroup("backend"),
+		v2.WithActivity("/coding/1/2/start-coding POST"),
+	), "E:", true)
+	fmt.Println("R:", authorizer.Authorize(principalA.ID(),
+		v2.WithTenant("TenantB"),
+		v2.WithNamespace("NamespaceA"),
+		v2.WithScope(e30.ID()),
 		v2.WithAttributeGroup("backend"),
 		v2.WithActivity("/coding/1/2/start-coding POST"),
 	), "E:", true)

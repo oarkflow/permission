@@ -10,34 +10,34 @@ import (
 func main() {
 	t := trie.New(permission.FilterFunc)
 	tp1 := &permission.Data{
-		TenantID:             "tenant1",
-		PrincipalID:          "principal1",
-		RoleID:               "role1",
-		NamespaceID:          "namespace1",
-		ScopeID:              "scope1",
-		CanManageDescendants: true,
+		Tenant:            "tenant1",
+		Principal:         "principal1",
+		Role:              "role1",
+		Namespace:         "namespace1",
+		Scope:             "scope1",
+		ManageDescendants: true,
 	}
 	tp3 := &permission.Data{
-		TenantID:    "tenant1",
-		PrincipalID: "principal3",
+		Tenant:    "tenant1",
+		Principal: "principal3",
 	}
 
 	tp2 := &permission.Data{
-		TenantID:             "tenant2",
-		PrincipalID:          "principal2",
-		RoleID:               "role2",
-		NamespaceID:          "namespace2",
-		ScopeID:              "scope2",
-		CanManageDescendants: false,
+		Tenant:            "tenant2",
+		Principal:         "principal2",
+		Role:              "role2",
+		Namespace:         "namespace2",
+		Scope:             "scope2",
+		ManageDescendants: false,
 	}
 
 	tp4 := &permission.Data{
-		TenantID:             "tenant2",
-		PrincipalID:          "principal2",
-		RoleID:               "role1",
-		NamespaceID:          "namespace2",
-		ScopeID:              "scope2",
-		CanManageDescendants: false,
+		Tenant:            "tenant2",
+		Principal:         "principal2",
+		Role:              "role1",
+		Namespace:         "namespace2",
+		Scope:             "scope2",
+		ManageDescendants: false,
 	}
 
 	t.Insert(tp1)
@@ -46,7 +46,7 @@ func main() {
 	t.Insert(tp4)
 
 	// Search for tenant principals with specific fields
-	tpToSearch := &permission.Data{RoleID: "role1", TenantID: "tenant2"}
+	tpToSearch := &permission.Data{Role: "role1", Tenant: "tenant2"}
 	results := t.Search(tpToSearch)
 	for _, result := range results {
 		fmt.Printf("Found: %+v\n", result)

@@ -1,8 +1,11 @@
 package permission
 
 import (
+	"encoding/json"
+
 	"github.com/oarkflow/permission/maps"
 	"github.com/oarkflow/permission/trie"
+	"github.com/oarkflow/permission/utils"
 )
 
 type RoleManager struct {
@@ -35,8 +38,8 @@ func (u *RoleManager) Data() *trie.Trie[Data] {
 
 func getNamespaceIDs(rs []*Data) (data []any) {
 	for _, r := range rs {
-		if r.NamespaceID != nil {
-			data = append(data, r.NamespaceID)
+		if r.Namespace != nil {
+			data = append(data, r.Namespace)
 		}
 	}
 	return
@@ -44,16 +47,15 @@ func getNamespaceIDs(rs []*Data) (data []any) {
 
 func getScopeIDs(rs []*Data) (data []any) {
 	for _, r := range rs {
-		if r.ScopeID != nil {
-			data = append(data, r.ScopeID)
+		if r.Scope != nil {
+			data = append(data, r.Scope)
 		}
 	}
 	return
 }
 
-func (u *RoleManager) AddData(tenantID, namespaceID, scopeID, principalID, roleID, canManageDescendants any) {
-	data := AddData(tenantID, namespaceID, scopeID, principalID, roleID, canManageDescendants)
-	u.trie.Insert(&data)
+func (u *RoleManager) AddData(data *Data) {
+	u.trie.Insert(data)
 }
 
 func (u *RoleManager) TotalRoles() uintptr {
@@ -75,13 +77,11 @@ func (u *RoleManager) TotalTenants() uintptr {
 func (u *RoleManager) TotalPrincipals() uintptr {
 	return u.principals.Len()
 }
-func AddData(tenantID, namespaceID, scopeID, principalID, roleID, canManageDescendants any) Data {
-	return Data{
-		TenantID:             tenantID,
-		PrincipalID:          principalID,
-		RoleID:               roleID,
-		NamespaceID:          namespaceID,
-		ScopeID:              scopeID,
-		CanManageDescendants: canManageDescendants,
+
+func (u *RoleManager) AsString() string {
+	data, err := json.Marshal(u.trie.Data())
+	if err != nil {
+		return ""
 	}
+	return utils.FromByte(data)
 }

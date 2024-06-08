@@ -24,8 +24,8 @@ func BenchmarkV2(b *testing.B) {
 
 	principalA := authorizer.AddPrincipal(v2.NewPrincipal("principalA"))
 
-	tenantA.AddPrincipal(principalA.ID(), coder.ID())
-	tenantA.AssignScopesToPrincipal(principalA.ID(), e29.ID())
+	tenantA.AddPrincipal(principalA.ID(), true, coder.ID())
+	tenantA.AssignScopesToPrincipal(principalA.ID(), true, e29.ID())
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		V2Test(authorizer)

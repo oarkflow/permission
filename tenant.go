@@ -24,7 +24,7 @@ func (c *Tenant) ID() string {
 }
 
 func (c *Tenant) AddNamespace(n *Namespace) *Namespace {
-	c.manager.AddData(c.id, n.id, nil, nil, nil, nil)
+	c.manager.AddData(&Data{Tenant: c.id, Namespace: n.id})
 	return n
 }
 
@@ -63,7 +63,7 @@ func (c *Tenant) SetDefaultNamespace(nms string) {
 }
 
 func (c *Tenant) AddRole(n *Role) *Role {
-	c.manager.AddData(c.id, nil, nil, nil, n.id, nil)
+	c.manager.AddData(&Data{Tenant: c.id, Role: n.id})
 	return n
 }
 
@@ -74,7 +74,7 @@ func (c *Tenant) AddRoles(nms ...*Role) {
 }
 
 func (c *Tenant) AddScope(n *Scope) *Scope {
-	c.manager.AddData(c.id, nil, n.id, nil, nil, nil)
+	c.manager.AddData(&Data{Tenant: c.id, Scope: n.id})
 	return n
 }
 
@@ -84,23 +84,23 @@ func (c *Tenant) AddScopes(nms ...*Scope) {
 	}
 }
 
-func (c *Tenant) AddPrincipalWithRole(principalID, roleID string) error {
+func (c *Tenant) AddPrincipalWithRole(principalID, roleID string, manageDescendants bool) error {
 	if _, ok := c.manager.principals.Get(principalID); !ok {
 		return errors.New("no principal available")
 	}
 	if _, ok := c.manager.roles.Get(roleID); !ok {
 		return errors.New("no role available")
 	}
-	c.manager.AddData(c.id, nil, nil, principalID, roleID, true)
+	c.manager.AddData(&Data{Tenant: c.id, Principal: principalID, Role: roleID, ManageDescendants: manageDescendants})
 	if c.defaultNamespace != nil {
-		c.manager.AddData(c.id, c.defaultNamespace.id, nil, principalID, roleID, true)
+		c.manager.AddData(&Data{Tenant: c.id, Namespace: c.defaultNamespace.id, Principal: principalID, Role: roleID, ManageDescendants: manageDescendants})
 	}
 	return nil
 }
 
-func (c *Tenant) AddPrincipal(principalID string, nms ...string) error {
+func (c *Tenant) AddPrincipal(principalID string, manageDescendants bool, nms ...string) error {
 	for _, n := range nms {
-		err := c.AddPrincipalWithRole(principalID, n)
+		err := c.AddPrincipalWithRole(principalID, n, manageDescendants)
 		if err != nil {
 			return err
 		}
@@ -108,23 +108,23 @@ func (c *Tenant) AddPrincipal(principalID string, nms ...string) error {
 	return nil
 }
 
-func (c *Tenant) AddScopeToPrincipal(principalID, scopeID string) error {
+func (c *Tenant) AddScopeToPrincipal(principalID, scopeID string, manageDescendants bool) error {
 	if _, ok := c.manager.principals.Get(principalID); !ok {
 		return errors.New("no principal available")
 	}
 	if _, ok := c.manager.scopes.Get(scopeID); !ok {
 		return errors.New("no scope available")
 	}
-	c.manager.AddData(c.id, nil, scopeID, principalID, nil, true)
+	c.manager.AddData(&Data{Tenant: c.id, Scope: scopeID, Principal: principalID, ManageDescendants: manageDescendants})
 	if c.defaultNamespace != nil {
-		c.manager.AddData(c.id, c.defaultNamespace.id, scopeID, principalID, nil, true)
+		c.manager.AddData(&Data{Tenant: c.id, Namespace: c.defaultNamespace.id, Scope: scopeID, Principal: principalID, ManageDescendants: manageDescendants})
 	}
 	return nil
 }
 
-func (c *Tenant) AssignScopesToPrincipal(principalID string, nms ...string) error {
+func (c *Tenant) AssignScopesToPrincipal(principalID string, manageDescendants bool, nms ...string) error {
 	for _, n := range nms {
-		err := c.AddScopeToPrincipal(principalID, n)
+		err := c.AddScopeToPrincipal(principalID, n, manageDescendants)
 		if err != nil {
 			return err
 		}
