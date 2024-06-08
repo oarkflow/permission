@@ -20,6 +20,7 @@ func BenchmarkInsert(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		t.Insert(tp)
+		t.Search(trie.Data{TenantID: "tenant1"})
 	}
 }
 
@@ -39,6 +40,6 @@ func BenchmarkSearch(b *testing.B) {
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_ = t.Search(filter, true)
+		_ = t.Search(filter)
 	}
 }

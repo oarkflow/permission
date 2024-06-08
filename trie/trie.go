@@ -3,8 +3,6 @@ package trie
 import (
 	"fmt"
 	"sync"
-
-	"github.com/oarkflow/permission/utils"
 )
 
 type Data struct {
@@ -29,15 +27,7 @@ func IsNil(value any) bool {
 }
 
 func MatchesFilter(value, filter any) bool {
-	if IsNil(filter) {
-		return false
-	}
-	switch filter := filter.(type) {
-	case []any:
-		return utils.Contains(filter, value)
-	default:
-		return value == filter
-	}
+	return !IsNil(filter) && value == filter
 }
 
 func FilterByFields(filter *Data, row *Data, fields ...func(*Data) any) bool {
