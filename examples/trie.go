@@ -3,12 +3,13 @@ package main
 import (
 	"fmt"
 
+	"github.com/oarkflow/permission"
 	"github.com/oarkflow/permission/trie"
 )
 
 func main() {
-	t := trie.New()
-	tp1 := &trie.Data{
+	t := trie.New(permission.FilterFunc)
+	tp1 := &permission.Data{
 		TenantID:             "tenant1",
 		PrincipalID:          "principal1",
 		RoleID:               "role1",
@@ -16,12 +17,12 @@ func main() {
 		ScopeID:              "scope1",
 		CanManageDescendants: true,
 	}
-	tp3 := &trie.Data{
+	tp3 := &permission.Data{
 		TenantID:    "tenant1",
 		PrincipalID: "principal3",
 	}
 
-	tp2 := &trie.Data{
+	tp2 := &permission.Data{
 		TenantID:             "tenant2",
 		PrincipalID:          "principal2",
 		RoleID:               "role2",
@@ -30,7 +31,7 @@ func main() {
 		CanManageDescendants: false,
 	}
 
-	tp4 := &trie.Data{
+	tp4 := &permission.Data{
 		TenantID:             "tenant2",
 		PrincipalID:          "principal2",
 		RoleID:               "role1",
@@ -45,7 +46,7 @@ func main() {
 	t.Insert(tp4)
 
 	// Search for tenant principals with specific fields
-	tpToSearch := trie.Data{RoleID: "role1", TenantID: "tenant2"}
+	tpToSearch := &permission.Data{RoleID: "role1", TenantID: "tenant2"}
 	results := t.Search(tpToSearch)
 	for _, result := range results {
 		fmt.Printf("Found: %+v\n", result)

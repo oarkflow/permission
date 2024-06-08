@@ -6,40 +6,19 @@ import (
 	"github.com/oarkflow/permission/trie"
 )
 
-func BenchmarkInsert(b *testing.B) {
-	t := trie.New()
-	tp := &trie.Data{
-		TenantID:             "tenant1",
-		PrincipalID:          "principal1",
-		RoleID:               "role1",
-		NamespaceID:          "namespace1",
-		ScopeID:              "scope1",
-		CanManageDescendants: true,
-	}
-
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		t.Insert(tp)
-		t.Search(trie.Data{TenantID: "tenant1"})
-	}
+func filterFunc(filter *map[string]any, node *map[string]any) bool {
+	return true
 }
 
-func BenchmarkSearch(b *testing.B) {
-	t := trie.New()
-	tp := &trie.Data{
-		TenantID:             "tenant1",
-		PrincipalID:          "principal1",
-		RoleID:               "role1",
-		NamespaceID:          "namespace1",
-		ScopeID:              "scope1",
-		CanManageDescendants: true,
+func BenchmarkInsert(b *testing.B) {
+	t := trie.New(filterFunc)
+	tp := map[string]any{
+		"test": "123",
 	}
-	t.Insert(tp)
-
-	filter := trie.Data{TenantID: "tenant1", PrincipalID: "principal1", RoleID: "role1", NamespaceID: "namespace1", ScopeID: "scope1", CanManageDescendants: true}
 
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_ = t.Search(filter)
+		t.Insert(&tp)
+		t.Search(&map[string]any{"test": "123"})
 	}
 }

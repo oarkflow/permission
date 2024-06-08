@@ -13,7 +13,7 @@ type RoleManager struct {
 	roles           maps.IMap[string, *Role]
 	attributes      maps.IMap[string, *Attribute]
 	attributeGroups maps.IMap[string, *AttributeGroup]
-	trie            *trie.Trie
+	trie            *trie.Trie[Data]
 }
 
 func New() *RoleManager {
@@ -25,15 +25,15 @@ func New() *RoleManager {
 		roles:           maps.New[string, *Role](),
 		attributes:      maps.New[string, *Attribute](),
 		attributeGroups: maps.New[string, *AttributeGroup](),
-		trie:            trie.New(),
+		trie:            trie.New[Data](FilterFunc),
 	}
 }
 
-func (u *RoleManager) Data() *trie.Trie {
+func (u *RoleManager) Data() *trie.Trie[Data] {
 	return u.trie
 }
 
-func getNamespaceIDs(rs []*trie.Data) (data []any) {
+func getNamespaceIDs(rs []*Data) (data []any) {
 	for _, r := range rs {
 		if r.NamespaceID != nil {
 			data = append(data, r.NamespaceID)
@@ -42,7 +42,7 @@ func getNamespaceIDs(rs []*trie.Data) (data []any) {
 	return
 }
 
-func getScopeIDs(rs []*trie.Data) (data []any) {
+func getScopeIDs(rs []*Data) (data []any) {
 	for _, r := range rs {
 		if r.ScopeID != nil {
 			data = append(data, r.ScopeID)
@@ -52,7 +52,7 @@ func getScopeIDs(rs []*trie.Data) (data []any) {
 }
 
 func (u *RoleManager) AddData(tenantID, namespaceID, scopeID, principalID, roleID, canManageDescendants any) {
-	data := trie.AddData(tenantID, namespaceID, scopeID, principalID, roleID, canManageDescendants)
+	data := AddData(tenantID, namespaceID, scopeID, principalID, roleID, canManageDescendants)
 	u.trie.Insert(&data)
 }
 
@@ -74,4 +74,14 @@ func (u *RoleManager) TotalTenants() uintptr {
 
 func (u *RoleManager) TotalPrincipals() uintptr {
 	return u.principals.Len()
+}
+func AddData(tenantID, namespaceID, scopeID, principalID, roleID, canManageDescendants any) Data {
+	return Data{
+		TenantID:             tenantID,
+		PrincipalID:          principalID,
+		RoleID:               roleID,
+		NamespaceID:          namespaceID,
+		ScopeID:              scopeID,
+		CanManageDescendants: canManageDescendants,
+	}
 }

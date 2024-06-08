@@ -1,26 +1,13 @@
 package trie
 
 import (
-	"fmt"
+	"reflect"
 	"sync"
 )
 
-type Data struct {
-	TenantID             any
-	NamespaceID          any
-	ScopeID              any
-	PrincipalID          any
-	RoleID               any
-	CanManageDescendants any
-}
+type DataProps any
 
-func (data Data) ToString() string {
-	return fmt.Sprintf("%v-%v-%v-%v-%v-%v",
-		data.TenantID, data.NamespaceID, data.ScopeID,
-		data.PrincipalID, data.RoleID, data.CanManageDescendants)
-}
-
-type SearchFunc func(filter *Data, row *Data) bool
+type SearchFunc[T DataProps] func(filter *T, row *T) bool
 
 func IsNil(value any) bool {
 	return value == nil
@@ -30,7 +17,7 @@ func MatchesFilter(value, filter any) bool {
 	return !IsNil(filter) && value == filter
 }
 
-func FilterByFields(filter *Data, row *Data, fields ...func(*Data) any) bool {
+func FilterByFields[T DataProps](filter *T, row *T, fields ...func(*T) any) bool {
 	for _, field := range fields {
 		if IsNil(field(row)) || !MatchesFilter(field(row), field(filter)) {
 			return false
@@ -39,56 +26,63 @@ func FilterByFields(filter *Data, row *Data, fields ...func(*Data) any) bool {
 	return true
 }
 
-func AddData(tenantID, namespaceID, scopeID, principalID, roleID, canManageDescendants any) Data {
-	return Data{
-		TenantID:             tenantID,
-		PrincipalID:          principalID,
-		RoleID:               roleID,
-		NamespaceID:          namespaceID,
-		ScopeID:              scopeID,
-		CanManageDescendants: canManageDescendants,
-	}
-}
-
-type Node struct {
+type Node[T DataProps] struct {
 	mu    sync.RWMutex
-	child map[any]*Node
+	child map[any]*Node[T]
 	isEnd bool
-	data  *Data
+	data  *T
 }
 
-func (node *Node) addChild(field any) *Node {
+func (node *Node[T]) addChild(field any) *Node[T] {
 	node.mu.Lock()
 	defer node.mu.Unlock()
 	if n, exists := node.child[field]; exists {
 		return n
 	}
-	n := &Node{child: make(map[any]*Node)}
+	n := &Node[T]{child: make(map[any]*Node[T])}
 	node.child[field] = n
 	return n
 }
 
-func (node *Node) getChild(field any) (*Node, bool) {
+func (node *Node[T]) getChild(field any) (*Node[T], bool) {
 	node.mu.RLock()
 	defer node.mu.RUnlock()
 	n, exists := node.child[field]
 	return n, exists
 }
 
-type Trie struct {
-	root *Node
+type Trie[T DataProps] struct {
+	root      *Node[T]
+	match     SearchFunc[T]
+	dataSlice sync.Pool
 }
 
-func New() *Trie {
-	return &Trie{
-		root: &Node{child: make(map[any]*Node)},
+func New[T DataProps](match SearchFunc[T]) *Trie[T] {
+	return &Trie[T]{
+		root: &Node[T]{child: make(map[any]*Node[T])},
+		dataSlice: sync.Pool{
+			New: func() any {
+				return &[]*T{}
+			},
+		},
+		match: match,
 	}
 }
 
-func (t *Trie) Insert(tp *Data) {
+func (t *Trie[T]) Insert(tp *T) {
 	node := t.root
-	fields := []any{tp.TenantID, tp.PrincipalID, tp.RoleID, tp.NamespaceID, tp.ScopeID, tp.CanManageDescendants}
-
+	v := reflect.ValueOf(*tp)
+	fields := make([]any, 0)
+	switch v.Kind() {
+	case reflect.Struct:
+		for i := 0; i < v.NumField(); i++ {
+			fields = append(fields, v.Field(i).Interface())
+		}
+	case reflect.Map:
+		for _, key := range v.MapKeys() {
+			fields = append(fields, v.MapIndex(key).Interface())
+		}
+	}
 	for _, field := range fields {
 		child, _ := node.getChild(field)
 		if child == nil {
@@ -100,37 +94,31 @@ func (t *Trie) Insert(tp *Data) {
 	node.data = tp
 }
 
-var dataSlice = sync.Pool{
-	New: func() any {
-		return &[]*Data{}
-	},
-}
-
-func (t *Trie) Data() []*Data {
-	results := dataSlice.Get().(*[]*Data)
-	defer dataSlice.Put(results)
+func (t *Trie[T]) Data() []*T {
+	results := t.dataSlice.Get().(*[]*T)
+	defer t.dataSlice.Put(results)
 	*results = (*results)[:0]
-	t.searchRecursiveFunc(t.root, nil, func(f *Data, n *Data) bool { return true }, results)
+	t.searchRecursiveFunc(t.root, nil, func(f *T, n *T) bool { return true }, results)
 	return *results
 }
 
-func (t *Trie) Search(filter Data) []*Data {
-	results := dataSlice.Get().(*[]*Data)
-	defer dataSlice.Put(results)
+func (t *Trie[T]) Search(filter *T) []*T {
+	results := t.dataSlice.Get().(*[]*T)
+	defer t.dataSlice.Put(results)
 	*results = (*results)[:0]
-	t.searchRecursiveFunc(t.root, &filter, match, results)
+	t.searchRecursiveFunc(t.root, filter, t.match, results)
 	return *results
 }
 
-func (t *Trie) SearchFunc(filter Data, callback SearchFunc) []*Data {
-	results := dataSlice.Get().(*[]*Data)
-	defer dataSlice.Put(results)
+func (t *Trie[T]) SearchFunc(filter *T, callback SearchFunc[T]) []*T {
+	results := t.dataSlice.Get().(*[]*T)
+	defer t.dataSlice.Put(results)
 	*results = (*results)[:0]
-	t.searchRecursiveFunc(t.root, &filter, callback, results)
+	t.searchRecursiveFunc(t.root, filter, callback, results)
 	return *results
 }
 
-func (t *Trie) searchRecursiveFunc(node *Node, filter *Data, callback SearchFunc, results *[]*Data) {
+func (t *Trie[T]) searchRecursiveFunc(node *Node[T], filter *T, callback SearchFunc[T], results *[]*T) {
 	if node.isEnd && callback(filter, node.data) {
 		*results = append(*results, node.data)
 	}
@@ -139,20 +127,20 @@ func (t *Trie) searchRecursiveFunc(node *Node, filter *Data, callback SearchFunc
 	}
 }
 
-func (t *Trie) First(filter Data) *Data {
-	results := dataSlice.Get().(*[]*Data)
-	defer dataSlice.Put(results)
+func (t *Trie[T]) First(filter T) *T {
+	results := t.dataSlice.Get().(*[]*T)
+	defer t.dataSlice.Put(results)
 	*results = (*results)[:0]
-	t.firstRecursiveFunc(t.root, &filter, match, results)
+	t.firstRecursiveFunc(t.root, &filter, t.match, results)
 	if len(*results) > 0 {
 		return (*results)[0]
 	}
 	return nil
 }
 
-func (t *Trie) FirstFunc(filter Data, callback SearchFunc) *Data {
-	results := dataSlice.Get().(*[]*Data)
-	defer dataSlice.Put(results)
+func (t *Trie[T]) FirstFunc(filter T, callback SearchFunc[T]) *T {
+	results := t.dataSlice.Get().(*[]*T)
+	defer t.dataSlice.Put(results)
 	*results = (*results)[:0]
 	t.firstRecursiveFunc(t.root, &filter, callback, results)
 	if len(*results) > 0 {
@@ -161,7 +149,7 @@ func (t *Trie) FirstFunc(filter Data, callback SearchFunc) *Data {
 	return nil
 }
 
-func (t *Trie) firstRecursiveFunc(node *Node, filter *Data, callback SearchFunc, results *[]*Data) {
+func (t *Trie[T]) firstRecursiveFunc(node *Node[T], filter *T, callback SearchFunc[T], results *[]*T) {
 	if node.isEnd && callback(filter, node.data) {
 		*results = append(*results, node.data)
 	}
@@ -174,26 +162,4 @@ func (t *Trie) firstRecursiveFunc(node *Node, filter *Data, callback SearchFunc,
 			break
 		}
 	}
-}
-
-func match(filter *Data, node *Data) bool {
-	if !IsNil(filter.TenantID) && !MatchesFilter(node.TenantID, filter.TenantID) {
-		return false
-	}
-	if !IsNil(filter.PrincipalID) && !MatchesFilter(node.PrincipalID, filter.PrincipalID) {
-		return false
-	}
-	if !IsNil(filter.RoleID) && !MatchesFilter(node.RoleID, filter.RoleID) {
-		return false
-	}
-	if !IsNil(filter.NamespaceID) && !MatchesFilter(node.NamespaceID, filter.NamespaceID) {
-		return false
-	}
-	if !IsNil(filter.ScopeID) && !MatchesFilter(node.ScopeID, filter.ScopeID) {
-		return false
-	}
-	if !IsNil(filter.CanManageDescendants) && filter.CanManageDescendants != node.CanManageDescendants {
-		return false
-	}
-	return true
 }
