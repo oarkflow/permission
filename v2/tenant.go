@@ -3,7 +3,7 @@ package v2
 import (
 	"errors"
 
-	"github.com/oarkflow/maps"
+	"github.com/oarkflow/permission/maps"
 )
 
 func WithTenant(tenant any) func(*Option) {

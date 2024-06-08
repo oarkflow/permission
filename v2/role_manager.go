@@ -1,8 +1,7 @@
 package v2
 
 import (
-	"github.com/oarkflow/maps"
-
+	"github.com/oarkflow/permission/maps"
 	"github.com/oarkflow/permission/trie"
 )
 

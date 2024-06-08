@@ -5,8 +5,7 @@ import (
 	"fmt"
 	"slices"
 
-	"github.com/oarkflow/maps"
-
+	"github.com/oarkflow/permission/maps"
 	"github.com/oarkflow/permission/utils"
 )
 
@@ -141,7 +140,7 @@ func (r *Role) AddPermissionResourceGroup(resourceGroup *AttributeGroup) error {
 		return errors.New("changes not allowed")
 	}
 	if _, ok := r.permissions.Get(resourceGroup.id); !ok {
-		r.permissions.GetOrSet(resourceGroup.id, resourceGroup)
+		r.permissions.Set(resourceGroup.id, resourceGroup)
 	}
 	return nil
 }

@@ -8,21 +8,22 @@ import (
 )
 
 func BenchmarkV2(b *testing.B) {
+	authorizer := v2.New()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		V2Test()
+		V2Test(authorizer)
 	}
 }
 
 func BenchmarkMain(b *testing.B) {
+	authorizer := permission.New()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		MainTest()
+		MainTest(authorizer)
 	}
 }
 
-func V2Test() {
-	authorizer := v2.New()
+func V2Test(authorizer *v2.RoleManager) {
 	v2addAttributes(authorizer)
 	tenantA := authorizer.AddTenant(v2.NewTenant("TenantA"))
 	tenantB := authorizer.AddTenant(v2.NewTenant("TenantB"))
@@ -146,8 +147,7 @@ func v2addAttributes(authorizer *v2.RoleManager) {
 	authorizer.AddAttributeGroups(backendGroup, pageGroup)
 }
 
-func MainTest() {
-	authorizer := permission.New()
+func MainTest(authorizer *permission.RoleManager) {
 	addAttributes(authorizer)
 	tenantA := authorizer.AddTenant(permission.NewTenant("TenantA"))
 	tenantB := authorizer.AddTenant(permission.NewTenant("TenantB"))
