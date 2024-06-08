@@ -20,7 +20,7 @@ func (data Data) ToString() string {
 		data.PrincipalID, data.RoleID, data.CanManageDescendants)
 }
 
-type SearchFunc func(filer *Data, row *Data) bool
+type SearchFunc func(filter *Data, row *Data) bool
 
 func IsNil(value any) bool {
 	return value == nil
@@ -60,14 +60,17 @@ type Node struct {
 func (node *Node) addChild(field any) *Node {
 	node.mu.Lock()
 	defer node.mu.Unlock()
+	if n, exists := node.child[field]; exists {
+		return n
+	}
 	n := &Node{child: make(map[any]*Node)}
 	node.child[field] = n
 	return n
 }
 
 func (node *Node) getChild(field any) (*Node, bool) {
-	node.mu.Lock()
-	defer node.mu.Unlock()
+	node.mu.RLock()
+	defer node.mu.RUnlock()
 	n, exists := node.child[field]
 	return n, exists
 }
@@ -87,43 +90,44 @@ func (t *Trie) Insert(tp *Data) {
 	fields := []any{tp.TenantID, tp.PrincipalID, tp.RoleID, tp.NamespaceID, tp.ScopeID, tp.CanManageDescendants}
 
 	for _, field := range fields {
-		child, exists := node.getChild(field)
-		if !exists {
+		child, _ := node.getChild(field)
+		if child == nil {
 			child = node.addChild(field)
-			node = child
-		} else {
-			node = child
 		}
+		node = child
 	}
 	node.isEnd = true
 	node.data = tp
 }
 
+var dataSlice = sync.Pool{
+	New: func() any {
+		return &[]*Data{}
+	},
+}
+
 func (t *Trie) Data() []*Data {
-	results := dataSlice.Get()
-	defer func() {
-		dataSlice.Put(results[:0])
-	}()
-	t.searchRecursiveFunc(t.root, nil, func(f *Data, n *Data) bool { return true }, &results)
-	return results
+	results := dataSlice.Get().(*[]*Data)
+	defer dataSlice.Put(results)
+	*results = (*results)[:0]
+	t.searchRecursiveFunc(t.root, nil, func(f *Data, n *Data) bool { return true }, results)
+	return *results
 }
 
 func (t *Trie) Search(filter Data) []*Data {
-	results := dataSlice.Get()
-	defer func() {
-		dataSlice.Put(results[:0])
-	}()
-	t.searchRecursiveFunc(t.root, &filter, match, &results)
-	return results
+	results := dataSlice.Get().(*[]*Data)
+	defer dataSlice.Put(results)
+	*results = (*results)[:0]
+	t.searchRecursiveFunc(t.root, &filter, match, results)
+	return *results
 }
 
 func (t *Trie) SearchFunc(filter Data, callback SearchFunc) []*Data {
-	results := dataSlice.Get()
-	defer func() {
-		dataSlice.Put(results[:0])
-	}()
-	t.searchRecursiveFunc(t.root, &filter, callback, &results)
-	return results
+	results := dataSlice.Get().(*[]*Data)
+	defer dataSlice.Put(results)
+	*results = (*results)[:0]
+	t.searchRecursiveFunc(t.root, &filter, callback, results)
+	return *results
 }
 
 func (t *Trie) searchRecursiveFunc(node *Node, filter *Data, callback SearchFunc, results *[]*Data) {
@@ -136,25 +140,23 @@ func (t *Trie) searchRecursiveFunc(node *Node, filter *Data, callback SearchFunc
 }
 
 func (t *Trie) First(filter Data) *Data {
-	results := dataSlice.Get()
-	defer func() {
-		dataSlice.Put(results[:0])
-	}()
-	t.firstRecursiveFunc(t.root, &filter, match, &results)
-	if len(results) > 0 {
-		return results[0]
+	results := dataSlice.Get().(*[]*Data)
+	defer dataSlice.Put(results)
+	*results = (*results)[:0]
+	t.firstRecursiveFunc(t.root, &filter, match, results)
+	if len(*results) > 0 {
+		return (*results)[0]
 	}
 	return nil
 }
 
 func (t *Trie) FirstFunc(filter Data, callback SearchFunc) *Data {
-	results := dataSlice.Get()
-	defer func() {
-		dataSlice.Put(results[:0])
-	}()
-	t.firstRecursiveFunc(t.root, &filter, callback, &results)
-	if len(results) > 0 {
-		return results[0]
+	results := dataSlice.Get().(*[]*Data)
+	defer dataSlice.Put(results)
+	*results = (*results)[:0]
+	t.firstRecursiveFunc(t.root, &filter, callback, results)
+	if len(*results) > 0 {
+		return (*results)[0]
 	}
 	return nil
 }
@@ -168,26 +170,29 @@ func (t *Trie) firstRecursiveFunc(node *Node, filter *Data, callback SearchFunc,
 	}
 	for _, child := range node.child {
 		t.firstRecursiveFunc(child, filter, callback, results)
+		if len(*results) == 1 {
+			break
+		}
 	}
 }
 
 func match(filter *Data, node *Data) bool {
-	if IsNil(filter.TenantID) && MatchesFilter(node.TenantID, filter.TenantID) {
+	if !IsNil(filter.TenantID) && !MatchesFilter(node.TenantID, filter.TenantID) {
 		return false
 	}
-	if IsNil(filter.PrincipalID) && MatchesFilter(node.PrincipalID, filter.PrincipalID) {
+	if !IsNil(filter.PrincipalID) && !MatchesFilter(node.PrincipalID, filter.PrincipalID) {
 		return false
 	}
-	if IsNil(filter.RoleID) && MatchesFilter(node.RoleID, filter.RoleID) {
+	if !IsNil(filter.RoleID) && !MatchesFilter(node.RoleID, filter.RoleID) {
 		return false
 	}
-	if IsNil(filter.NamespaceID) && MatchesFilter(node.NamespaceID, filter.NamespaceID) {
+	if !IsNil(filter.NamespaceID) && !MatchesFilter(node.NamespaceID, filter.NamespaceID) {
 		return false
 	}
-	if IsNil(filter.ScopeID) && MatchesFilter(node.ScopeID, filter.ScopeID) {
+	if !IsNil(filter.ScopeID) && !MatchesFilter(node.ScopeID, filter.ScopeID) {
 		return false
 	}
-	if IsNil(filter.CanManageDescendants) && filter.CanManageDescendants != node.CanManageDescendants {
+	if !IsNil(filter.CanManageDescendants) && filter.CanManageDescendants != node.CanManageDescendants {
 		return false
 	}
 	return true
