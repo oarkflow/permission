@@ -1,9 +1,60 @@
 package test
 
 import (
-	"github.com/oarkflow/permission"
+	"testing"
+
 	v2 "github.com/oarkflow/permission"
+
+	"github.com/oarkflow/permission/v1"
 )
+
+func BenchmarkV2(b *testing.B) {
+	authorizer := v2.New()
+	v2addAttributes(authorizer)
+	tenantA := authorizer.AddTenant(v2.NewTenant("TenantA"))
+	tenantB := authorizer.AddTenant(v2.NewTenant("TenantB"))
+	namespace := authorizer.AddNamespace(v2.NewNamespace("NamespaceA"))
+	tenantA.AddNamespaces(namespace)
+	tenantA.AddDescendant(tenantB)
+	// tenantA.SetDefaultNamespace(namespace.ID())
+	coder, qa, suspendManager, _ := v2myRoles(authorizer)
+	tenantA.AddRoles(coder, qa, suspendManager)
+	e29 := authorizer.AddScope(v2.NewScope("EntityA"))
+	tenantA.AddScopes(e29)
+
+	principalA := authorizer.AddPrincipal(v2.NewPrincipal("principalA"))
+
+	tenantA.AddPrincipal(principalA.ID(), coder.ID())
+	tenantA.AssignScopesToPrincipal(principalA.ID(), e29.ID())
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		V2Test(authorizer)
+	}
+}
+
+func BenchmarkMain(b *testing.B) {
+	authorizer := v1.New()
+	addAttributes(authorizer)
+	tenantA := authorizer.AddTenant(v1.NewTenant("TenantA"))
+	tenantB := authorizer.AddTenant(v1.NewTenant("TenantB"))
+	namespace := authorizer.AddNamespace(v1.NewNamespace("NamespaceA"))
+	tenantA.AddNamespace(namespace)
+	tenantA.AddDescendent(tenantB)
+	// tenantA.SetDefaultNamespace(namespace.ID())
+	coder, qa, suspendManager, _ := myRoles(authorizer)
+	tenantA.AddRole(coder, qa, suspendManager)
+	e29 := authorizer.AddScope(v1.NewScope("EntityA"))
+	tenantA.AddScopes(e29)
+
+	principalA := authorizer.AddPrincipal(v1.NewPrincipal("principalA"))
+
+	tenantA.AddPrincipal(principalA.ID(), coder.ID())
+	tenantA.AssignScopesToPrincipal(principalA.ID(), e29.ID())
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		MainTest(authorizer)
+	}
+}
 
 func V2Test(authorizer *v2.RoleManager) {
 	authorizer.Authorize("principalA",
@@ -86,54 +137,54 @@ func v2addAttributes(authorizer *v2.RoleManager) {
 	authorizer.AddAttributeGroups(backendGroup, pageGroup)
 }
 
-func MainTest(authorizer *permission.RoleManager) {
+func MainTest(authorizer *v1.RoleManager) {
 
 	authorizer.Authorize("principalA",
-		permission.WithTenant("TenantA"),
-		permission.WithNamespace("NamespaceA"),
-		permission.WithScope("EntityA"),
+		v1.WithTenant("TenantA"),
+		v1.WithNamespace("NamespaceA"),
+		v1.WithScope("EntityA"),
 	)
 
 }
 
-func coderPermissions() []*permission.Attribute {
-	return []*permission.Attribute{
-		permission.NewAttribute("/coding/:wid/:eid/start-coding", "POST"),
-		permission.NewAttribute("/coding/:wid/open", "GET"),
-		permission.NewAttribute("/coding/:wid/in-progress", "GET"),
-		permission.NewAttribute("/coding/:wid/:eid/review", "POST"),
+func coderPermissions() []*v1.Attribute {
+	return []*v1.Attribute{
+		v1.NewAttribute("/coding/:wid/:eid/start-coding", "POST"),
+		v1.NewAttribute("/coding/:wid/open", "GET"),
+		v1.NewAttribute("/coding/:wid/in-progress", "GET"),
+		v1.NewAttribute("/coding/:wid/:eid/review", "POST"),
 	}
 }
 
-func qaPermissions() []*permission.Attribute {
-	return []*permission.Attribute{
-		permission.NewAttribute("/coding/:wid/:eid/start-qa", "POST"),
-		permission.NewAttribute("/coding/:wid/qa", "GET"),
-		permission.NewAttribute("/coding/:wid/qa-in-progress", "GET"),
-		permission.NewAttribute("/coding/:wid/:eid/qa-review", "POST"),
+func qaPermissions() []*v1.Attribute {
+	return []*v1.Attribute{
+		v1.NewAttribute("/coding/:wid/:eid/start-qa", "POST"),
+		v1.NewAttribute("/coding/:wid/qa", "GET"),
+		v1.NewAttribute("/coding/:wid/qa-in-progress", "GET"),
+		v1.NewAttribute("/coding/:wid/:eid/qa-review", "POST"),
 	}
 }
 
-func suspendManagerPermissions() []*permission.Attribute {
-	return []*permission.Attribute{
-		permission.NewAttribute("/coding/:wid/suspended", "GET"),
-		permission.NewAttribute("/coding/:wid/:eid/release-suspend", "POST"),
-		permission.NewAttribute("/coding/:wid/:eid/request-abandon", "POST"),
+func suspendManagerPermissions() []*v1.Attribute {
+	return []*v1.Attribute{
+		v1.NewAttribute("/coding/:wid/suspended", "GET"),
+		v1.NewAttribute("/coding/:wid/:eid/release-suspend", "POST"),
+		v1.NewAttribute("/coding/:wid/:eid/request-abandon", "POST"),
 	}
 }
 
-func adminManagerPermissions() []*permission.Attribute {
-	return []*permission.Attribute{
-		permission.NewAttribute("/admin/principal/add", "POST"),
-		permission.NewAttribute("/admin/principal/edit", "PUT"),
+func adminManagerPermissions() []*v1.Attribute {
+	return []*v1.Attribute{
+		v1.NewAttribute("/admin/principal/add", "POST"),
+		v1.NewAttribute("/admin/principal/edit", "PUT"),
 	}
 }
 
-func myRoles(authorizer *permission.RoleManager) (coder *permission.Role, qa *permission.Role, suspendManager *permission.Role, admin *permission.Role) {
-	coder = authorizer.AddRole(permission.NewRole("coder"))
-	qa = authorizer.AddRole(permission.NewRole("qa"))
-	suspendManager = authorizer.AddRole(permission.NewRole("suspend-manager"))
-	admin = authorizer.AddRole(permission.NewRole("admin"))
+func myRoles(authorizer *v1.RoleManager) (coder *v1.Role, qa *v1.Role, suspendManager *v1.Role, admin *v1.Role) {
+	coder = authorizer.AddRole(v1.NewRole("coder"))
+	qa = authorizer.AddRole(v1.NewRole("qa"))
+	suspendManager = authorizer.AddRole(v1.NewRole("suspend-manager"))
+	admin = authorizer.AddRole(v1.NewRole("admin"))
 	err := authorizer.AddPermissionsToRole(coder.ID(), "backend", coderPermissions()...)
 	if err != nil {
 		panic(err)
@@ -150,21 +201,21 @@ func myRoles(authorizer *permission.RoleManager) (coder *permission.Role, qa *pe
 	if err != nil {
 		panic(err)
 	}
-	err = admin.AddDescendant(coder, qa, suspendManager)
+	err = admin.AddDescendent(coder, qa, suspendManager)
 	if err != nil {
 		panic(err)
 	}
 	return
 }
 
-func addAttributes(authorizer *permission.RoleManager) {
-	var attrs []*permission.Attribute
+func addAttributes(authorizer *v1.RoleManager) {
+	var attrs []*v1.Attribute
 	attrs = append(attrs, qaPermissions()...)
 	attrs = append(attrs, coderPermissions()...)
 	attrs = append(attrs, suspendManagerPermissions()...)
-	backendGroup := permission.NewAttributeGroup("backend")
+	backendGroup := v1.NewAttributeGroup("backend")
 	backendGroup.AddAttributes(attrs...)
-	pageGroup := permission.NewAttributeGroup("page")
+	pageGroup := v1.NewAttributeGroup("page")
 	pageGroup.AddAttributes(adminManagerPermissions()...)
 	authorizer.AddAttributeGroups(backendGroup, pageGroup)
 }
