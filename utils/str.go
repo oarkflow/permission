@@ -3,6 +3,8 @@ package utils
 import (
 	"fmt"
 	"hash/fnv"
+	"reflect"
+	"sort"
 	"strings"
 	"unsafe"
 )
@@ -122,4 +124,62 @@ func Contains(slice []interface{}, elem interface{}) bool {
 		}
 	}
 	return false
+}
+
+func Intersection[T any](a, b []T) []T {
+	set := make(map[string]struct{})
+	var intersection []T
+
+	for _, item := range a {
+		set[Serialize(item)] = struct{}{}
+	}
+
+	for _, item := range b {
+		if _, exists := set[Serialize(item)]; exists {
+			intersection = append(intersection, item)
+		}
+	}
+
+	return intersection
+}
+
+func Union[T any](a, b []T) []T {
+	set := make(map[string]struct{})
+	var union []T
+
+	for _, item := range a {
+		set[Serialize(item)] = struct{}{}
+		union = append(union, item)
+	}
+
+	for _, item := range b {
+		if _, exists := set[Serialize(item)]; !exists {
+			union = append(union, item)
+		}
+	}
+
+	return union
+}
+
+func Serialize[T any](item T) string {
+	v := reflect.ValueOf(item)
+	if v.Kind() == reflect.Map {
+		keys := v.MapKeys()
+		sort.Slice(keys, func(i, j int) bool {
+			return keys[i].String() < keys[j].String()
+		})
+		var builder strings.Builder
+		for _, k := range keys {
+			builder.WriteString(fmt.Sprintf("%s:%v|", k, v.MapIndex(k)))
+		}
+		return builder.String()
+	}
+
+	var builder strings.Builder
+	t := v.Type()
+	for i := 0; i < v.NumField(); i++ {
+		builder.WriteString(fmt.Sprintf("%s:%v|", t.Field(i).Name, v.Field(i).Interface()))
+	}
+
+	return builder.String()
 }

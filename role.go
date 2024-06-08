@@ -2,10 +2,10 @@ package permission
 
 import (
 	"errors"
+	"fmt"
 	"slices"
 
-	"github.com/oarkflow/maps"
-
+	"github.com/oarkflow/permission/maps"
 	"github.com/oarkflow/permission/utils"
 )
 
@@ -140,7 +140,7 @@ func (r *Role) AddPermissionResourceGroup(resourceGroup *AttributeGroup) error {
 		return errors.New("changes not allowed")
 	}
 	if _, ok := r.permissions.Get(resourceGroup.id); !ok {
-		r.permissions.GetOrSet(resourceGroup.id, resourceGroup)
+		r.permissions.Set(resourceGroup.id, resourceGroup)
 	}
 	return nil
 }
@@ -189,4 +189,21 @@ func (r *Role) GetPermissions() map[string][]Attribute {
 		return true
 	})
 	return grpPermissions
+}
+
+func (u *RoleManager) AddPermissionsToRole(roleID, attributeGroupID string, attrs ...*Attribute) error {
+	role, ok := u.roles.Get(roleID)
+	if !ok {
+		return errors.New("no role available")
+	}
+	attributeGroup, ok := u.attributeGroups.Get(attributeGroupID)
+	if !ok {
+		return errors.New("no attribute group available")
+	}
+	for _, attr := range attrs {
+		if _, ok := attributeGroup.permissions.Get(attr.String()); !ok {
+			return fmt.Errorf("attribute '%s' not associated to the group '%s'", attr.String(), attributeGroupID)
+		}
+	}
+	return role.AddPermission(attributeGroupID, attrs...)
 }

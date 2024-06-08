@@ -2,7 +2,7 @@ package test
 
 import (
 	"github.com/oarkflow/permission"
-	v2 "github.com/oarkflow/permission/v2"
+	v2 "github.com/oarkflow/permission"
 )
 
 func V2Test(authorizer *v2.RoleManager) {

@@ -1,4 +1,4 @@
-package v2
+package permission
 
 func WithNamespace(namespace any) func(*Option) {
 	return func(s *Option) {

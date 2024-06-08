@@ -1,23 +1,18 @@
 package permission
 
 import (
-	"github.com/oarkflow/maps"
+	"github.com/oarkflow/permission/maps"
 )
 
 func NewTenant(id string) *Tenant {
 	return &Tenant{
 		id:          id,
-		namespaces:  maps.New[string, *Namespace](),
-		roles:       maps.New[string, *Role](),
-		scopes:      maps.New[string, *Scope](),
 		descendants: maps.New[string, *Tenant](),
 	}
 }
 func NewNamespace(id string) *Namespace {
 	return &Namespace{
-		id:     id,
-		roles:  maps.New[string, *Role](),
-		scopes: maps.New[string, *Scope](),
+		id: id,
 	}
 }
 func NewScope(id string) *Scope {
@@ -58,4 +53,30 @@ func NewPrincipal(id string) *Principal {
 	return &Principal{
 		id: id,
 	}
+}
+
+func (u *RoleManager) AddRole(role *Role) *Role {
+	if r, exists := u.roles.Get(role.id); exists {
+		return r
+	}
+	u.roles.Set(role.id, role)
+	return role
+}
+
+func (u *RoleManager) AddRoles(roles ...*Role) {
+	for _, role := range roles {
+		u.AddRole(role)
+	}
+}
+
+func (u *RoleManager) GetRole(role string) (*Role, bool) {
+	return u.roles.Get(role)
+}
+
+func (u *RoleManager) Roles() (data []string) {
+	u.roles.ForEach(func(id string, _ *Role) bool {
+		data = append(data, id)
+		return true
+	})
+	return
 }

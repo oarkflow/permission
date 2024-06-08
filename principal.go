@@ -1,4 +1,4 @@
-package v2
+package permission
 
 // Principal represents a user with a role
 type Principal struct {

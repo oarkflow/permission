@@ -3,8 +3,7 @@ package test
 import (
 	"testing"
 
-	"github.com/oarkflow/permission"
-	v2 "github.com/oarkflow/permission/v2"
+	v2 "github.com/oarkflow/permission"
 )
 
 func BenchmarkV2(b *testing.B) {
@@ -28,29 +27,5 @@ func BenchmarkV2(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		V2Test(authorizer)
-	}
-}
-
-func BenchmarkMain(b *testing.B) {
-	authorizer := permission.New()
-	addAttributes(authorizer)
-	tenantA := authorizer.AddTenant(permission.NewTenant("TenantA"))
-	tenantB := authorizer.AddTenant(permission.NewTenant("TenantB"))
-	namespace := authorizer.AddNamespace(permission.NewNamespace("NamespaceA"))
-	tenantA.AddNamespace(namespace)
-	tenantA.AddDescendant(tenantB)
-	// tenantA.SetDefaultNamespace(namespace.ID())
-	coder, qa, suspendManager, _ := myRoles(authorizer)
-	tenantA.AddRole(coder, qa, suspendManager)
-	e29 := authorizer.AddScope(permission.NewScope("EntityA"))
-	tenantA.AddScopes(e29)
-
-	principalA := authorizer.AddPrincipal(permission.NewPrincipal("principalA"))
-
-	tenantA.AddPrincipal(principalA.ID(), coder.ID())
-	tenantA.AssignScopesToPrincipal(principalA.ID(), e29.ID())
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		MainTest(authorizer)
 	}
 }
