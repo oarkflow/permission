@@ -28,8 +28,8 @@ func (u *RoleManager) GetDescendentTenant(desc any) *trie.Data {
 }
 
 func (u *RoleManager) GetImplicitTenants(principalID any) (data []*trie.Data) {
-	existingTenant := make(map[string]*trie.Data)
 	results := u.trie.SearchFunc(trie.Data{PrincipalID: principalID}, filterTenantsByPrincipal)
+	existingTenant := make(map[string]*trie.Data)
 
 	for _, rs := range results {
 		tenantID, ok := rs.TenantID.(string)

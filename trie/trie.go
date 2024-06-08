@@ -100,19 +100,28 @@ func (t *Trie) Insert(tp *Data) {
 }
 
 func (t *Trie) Data() []*Data {
-	results := make([]*Data, 0)
+	results := dataSlice.Get()
+	defer func() {
+		dataSlice.Put(results[:0])
+	}()
 	t.searchRecursiveFunc(t.root, nil, func(f *Data, n *Data) bool { return true }, &results)
 	return results
 }
 
 func (t *Trie) Search(filter Data) []*Data {
-	results := make([]*Data, 0)
+	results := dataSlice.Get()
+	defer func() {
+		dataSlice.Put(results[:0])
+	}()
 	t.searchRecursiveFunc(t.root, &filter, match, &results)
 	return results
 }
 
 func (t *Trie) SearchFunc(filter Data, callback SearchFunc) []*Data {
-	results := make([]*Data, 0)
+	results := dataSlice.Get()
+	defer func() {
+		dataSlice.Put(results[:0])
+	}()
 	t.searchRecursiveFunc(t.root, &filter, callback, &results)
 	return results
 }
@@ -127,7 +136,10 @@ func (t *Trie) searchRecursiveFunc(node *Node, filter *Data, callback SearchFunc
 }
 
 func (t *Trie) First(filter Data) *Data {
-	results := make([]*Data, 0)
+	results := dataSlice.Get()
+	defer func() {
+		dataSlice.Put(results[:0])
+	}()
 	t.firstRecursiveFunc(t.root, &filter, match, &results)
 	if len(results) > 0 {
 		return results[0]
@@ -136,7 +148,10 @@ func (t *Trie) First(filter Data) *Data {
 }
 
 func (t *Trie) FirstFunc(filter Data, callback SearchFunc) *Data {
-	results := make([]*Data, 0)
+	results := dataSlice.Get()
+	defer func() {
+		dataSlice.Put(results[:0])
+	}()
 	t.firstRecursiveFunc(t.root, &filter, callback, &results)
 	if len(results) > 0 {
 		return results[0]

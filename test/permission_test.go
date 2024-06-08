@@ -9,21 +9,6 @@ import (
 
 func BenchmarkV2(b *testing.B) {
 	authorizer := v2.New()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		V2Test(authorizer)
-	}
-}
-
-func BenchmarkMain(b *testing.B) {
-	authorizer := permission.New()
-	b.ResetTimer()
-	for i := 0; i < b.N; i++ {
-		MainTest(authorizer)
-	}
-}
-
-func V2Test(authorizer *v2.RoleManager) {
 	v2addAttributes(authorizer)
 	tenantA := authorizer.AddTenant(v2.NewTenant("TenantA"))
 	tenantB := authorizer.AddTenant(v2.NewTenant("TenantB"))
@@ -40,37 +25,41 @@ func V2Test(authorizer *v2.RoleManager) {
 
 	tenantA.AddPrincipal(principalA.ID(), coder.ID())
 	tenantA.AssignScopesToPrincipal(principalA.ID(), e29.ID())
-	authorizer.Authorize(principalA.ID(),
-		v2.WithTenant("TenantA"),
-		v2.WithNamespace("NamespaceA"),
-		v2.WithScope(e29.ID()),
-	)
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		V2Test(authorizer)
+	}
+}
 
-	authorizer.Authorize(principalA.ID(),
-		v2.WithTenant("TenantA"),
-		v2.WithNamespace("NamespaceA"),
-		v2.WithScope(e29.ID()),
-		v2.WithAttributeGroup("backend"),
-		v2.WithActivity("/coding/1/2/start-coding POST"),
-	)
+func BenchmarkMain(b *testing.B) {
+	authorizer := permission.New()
+	addAttributes(authorizer)
+	tenantA := authorizer.AddTenant(permission.NewTenant("TenantA"))
+	tenantB := authorizer.AddTenant(permission.NewTenant("TenantB"))
+	namespace := authorizer.AddNamespace(permission.NewNamespace("NamespaceA"))
+	tenantA.AddNamespace(namespace)
+	tenantA.AddDescendent(tenantB)
+	// tenantA.SetDefaultNamespace(namespace.ID())
+	coder, qa, suspendManager, _ := myRoles(authorizer)
+	tenantA.AddRole(coder, qa, suspendManager)
+	e29 := authorizer.AddScope(permission.NewScope("EntityA"))
+	tenantA.AddScopes(e29)
 
-	authorizer.Authorize(principalA.ID(),
+	principalA := authorizer.AddPrincipal(permission.NewPrincipal("principalA"))
+
+	tenantA.AddPrincipal(principalA.ID(), coder.ID())
+	tenantA.AssignScopesToPrincipal(principalA.ID(), e29.ID())
+	b.ResetTimer()
+	for i := 0; i < b.N; i++ {
+		MainTest(authorizer)
+	}
+}
+
+func V2Test(authorizer *v2.RoleManager) {
+	authorizer.Authorize("principalA",
 		v2.WithTenant("TenantA"),
 		v2.WithNamespace("NamespaceA"),
-		v2.WithAttributeGroup("backend"),
-		v2.WithActivity("/coding/1/2/start-coding POST"),
-	)
-	authorizer.Authorize(principalA.ID(),
-		v2.WithTenant("TenantB"),
-		v2.WithNamespace("NamespaceA"),
-		v2.WithScope(e29.ID()),
-	)
-	authorizer.Authorize(principalA.ID(),
-		v2.WithTenant("TenantB"),
-		v2.WithNamespace("NamespaceA"),
-		v2.WithScope(e29.ID()),
-		v2.WithAttributeGroup("backend"),
-		v2.WithActivity("/coding/1/2/start-coding POST"),
+		v2.WithScope("EntityA"),
 	)
 }
 
@@ -148,54 +137,13 @@ func v2addAttributes(authorizer *v2.RoleManager) {
 }
 
 func MainTest(authorizer *permission.RoleManager) {
-	addAttributes(authorizer)
-	tenantA := authorizer.AddTenant(permission.NewTenant("TenantA"))
-	tenantB := authorizer.AddTenant(permission.NewTenant("TenantB"))
-	namespace := authorizer.AddNamespace(permission.NewNamespace("NamespaceA"))
-	tenantA.AddNamespace(namespace)
-	tenantA.AddDescendent(tenantB)
-	// tenantA.SetDefaultNamespace(namespace.ID())
-	coder, qa, suspendManager, _ := myRoles(authorizer)
-	tenantA.AddRole(coder, qa, suspendManager)
-	e29 := authorizer.AddScope(permission.NewScope("EntityA"))
-	tenantA.AddScopes(e29)
 
-	principalA := authorizer.AddPrincipal(permission.NewPrincipal("principalA"))
-
-	tenantA.AddPrincipal(principalA.ID(), coder.ID())
-	tenantA.AssignScopesToPrincipal(principalA.ID(), e29.ID())
-	authorizer.Authorize(principalA.ID(),
+	authorizer.Authorize("principalA",
 		permission.WithTenant("TenantA"),
 		permission.WithNamespace("NamespaceA"),
-		permission.WithScope(e29.ID()),
+		permission.WithScope("EntityA"),
 	)
 
-	authorizer.Authorize(principalA.ID(),
-		permission.WithTenant("TenantA"),
-		permission.WithNamespace("NamespaceA"),
-		permission.WithScope(e29.ID()),
-		permission.WithResourceGroup("backend"),
-		permission.WithActivity("/coding/1/2/start-coding POST"),
-	)
-
-	authorizer.Authorize(principalA.ID(),
-		permission.WithTenant("TenantA"),
-		permission.WithNamespace("NamespaceA"),
-		permission.WithResourceGroup("backend"),
-		permission.WithActivity("/coding/1/2/start-coding POST"),
-	)
-	authorizer.Authorize(principalA.ID(),
-		permission.WithTenant("TenantB"),
-		permission.WithNamespace("NamespaceA"),
-		permission.WithScope(e29.ID()),
-	)
-	authorizer.Authorize(principalA.ID(),
-		permission.WithTenant("TenantB"),
-		permission.WithNamespace("NamespaceA"),
-		permission.WithScope(e29.ID()),
-		permission.WithResourceGroup("backend"),
-		permission.WithActivity("/coding/1/2/start-coding POST"),
-	)
 }
 
 func coderPermissions() []*permission.Attribute {

@@ -10,7 +10,6 @@ func (u *RoleManager) Authorize(principalID string, options ...func(*Option)) bo
 	if _, exists := u.GetPrincipal(principalID); !exists {
 		return false
 	}
-
 	userRoles := u.GetImplicitTenants(principalID)
 	if len(userRoles) == 0 {
 		return false
