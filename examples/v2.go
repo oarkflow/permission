@@ -24,7 +24,6 @@ func main() {
 
 	tenantA.AddPrincipal(principalA.ID(), coder.ID())
 	tenantA.AssignScopesToPrincipal(principalA.ID(), e29.ID())
-
 	fmt.Println("R:", authorizer.Authorize(principalA.ID(),
 		permission.WithTenant("TenantA"),
 		permission.WithNamespace("NamespaceA"),
@@ -49,7 +48,14 @@ func main() {
 		permission.WithTenant("TenantB"),
 		permission.WithNamespace("NamespaceA"),
 		permission.WithScope(e29.ID()),
-	), "E:", false)
+	), "E:", true)
+	fmt.Println("R:", authorizer.Authorize(principalA.ID(),
+		permission.WithTenant("TenantB"),
+		permission.WithNamespace("NamespaceA"),
+		permission.WithScope(e29.ID()),
+		permission.WithAttributeGroup("backend"),
+		permission.WithActivity("/coding/1/2/start-coding POST"),
+	), "E:", true)
 }
 
 func coderPermissions() []*permission.Attribute {

@@ -22,8 +22,8 @@ func (data Data) ToString() string {
 
 type SearchFunc func(filer *Data, row *Data) bool
 
-func AddData(tenantID, namespaceID, scopeID, principalID, roleID, canManageDescendants any) *Data {
-	return &Data{
+func AddData(tenantID, namespaceID, scopeID, principalID, roleID, canManageDescendants any) Data {
+	return Data{
 		TenantID:             tenantID,
 		PrincipalID:          principalID,
 		RoleID:               roleID,
@@ -106,6 +106,36 @@ func (t *Trie) searchRecursiveFunc(node *Node, filter *Data, callback SearchFunc
 	}
 	for _, child := range node.child {
 		t.searchRecursiveFunc(child, filter, callback, results)
+	}
+}
+
+func (t *Trie) First(filter Data) *Data {
+	results := make([]*Data, 0)
+	t.firstRecursiveFunc(t.root, &filter, match, &results)
+	if len(results) > 0 {
+		return results[0]
+	}
+	return nil
+}
+
+func (t *Trie) FirstFunc(filter Data, callback SearchFunc) *Data {
+	results := make([]*Data, 0)
+	t.firstRecursiveFunc(t.root, &filter, callback, &results)
+	if len(results) > 0 {
+		return results[0]
+	}
+	return nil
+}
+
+func (t *Trie) firstRecursiveFunc(node *Node, filter *Data, callback SearchFunc, results *[]*Data) {
+	if node.isEnd && callback(filter, node.data) {
+		*results = append(*results, node.data)
+	}
+	if len(*results) == 1 {
+		return
+	}
+	for _, child := range node.child {
+		t.firstRecursiveFunc(child, filter, callback, results)
 	}
 }
 
