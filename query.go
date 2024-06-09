@@ -30,38 +30,24 @@ func (u *RoleManager) GetDescendantTenant(desc any) *Data {
 	return u.trie.First(&Data{Tenant: desc})
 }
 
-func (u *RoleManager) GetImplicitTenants(principalID string) (data []*Data) {
+func (u *RoleManager) GetImplicitTenants(principalID string) map[string]struct{} {
 	tenantPrincipal := u.search(Data{Principal: principalID}, filterTenantsByPrincipal)
-	existingTenant := make(map[string]*Data)
-
+	existingTenant := make(map[string]struct{}, 0)
 	for _, rs := range tenantPrincipal {
-		tenantID, ok := rs.Tenant.(string)
-		if !ok {
-			continue
-		}
-
+		tenantID := rs.Tenant.(string)
 		if _, alreadyProcessed := existingTenant[tenantID]; alreadyProcessed {
 			continue
 		}
-
-		existingTenant[tenantID] = rs
-
+		existingTenant[tenantID] = struct{}{}
 		if canManage, ok := rs.ManageDescendants.(bool); ok && canManage {
 			for _, desc := range u.TenantChildren(tenantID) {
-				if d := u.GetDescendantTenant(desc); d != nil {
-					descendantID, ok := d.Tenant.(string)
-					if ok {
-						existingTenant[descendantID] = d
-					}
+				if desc != nil {
+					existingTenant[desc.(string)] = struct{}{}
 				}
 			}
 		}
 	}
-
-	for _, d := range existingTenant {
-		data = append(data, d)
-	}
-	return data
+	return existingTenant
 }
 
 func (u *RoleManager) GetScopesByPrincipal(principalID any) (data []*Data) {

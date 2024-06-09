@@ -9,30 +9,28 @@ import (
 )
 
 type RoleManager struct {
-	tenants          maps.IMap[string, *Tenant]
-	namespaces       maps.IMap[string, *Namespace]
-	scopes           maps.IMap[string, *Scope]
-	principals       maps.IMap[string, *Principal]
-	roles            maps.IMap[string, *Role]
-	attributes       maps.IMap[string, *Attribute]
-	attributeGroups  maps.IMap[string, *AttributeGroup]
-	trie             *trie.Trie[Data]
-	hierarchy        map[string][]any
-	principalTenants map[string][]*Data
+	tenants         maps.IMap[string, *Tenant]
+	namespaces      maps.IMap[string, *Namespace]
+	scopes          maps.IMap[string, *Scope]
+	principals      maps.IMap[string, *Principal]
+	roles           maps.IMap[string, *Role]
+	attributes      maps.IMap[string, *Attribute]
+	attributeGroups maps.IMap[string, *AttributeGroup]
+	trie            *trie.Trie[Data]
+	hierarchy       maps.IMap[string, []any]
 }
 
 func New() *RoleManager {
 	return &RoleManager{
-		tenants:          maps.New[string, *Tenant](),
-		namespaces:       maps.New[string, *Namespace](),
-		scopes:           maps.New[string, *Scope](),
-		principals:       maps.New[string, *Principal](),
-		roles:            maps.New[string, *Role](),
-		attributes:       maps.New[string, *Attribute](),
-		attributeGroups:  maps.New[string, *AttributeGroup](),
-		trie:             trie.New[Data](FilterFunc),
-		hierarchy:        make(map[string][]any),
-		principalTenants: make(map[string][]*Data),
+		tenants:         maps.New[string, *Tenant](),
+		namespaces:      maps.New[string, *Namespace](),
+		scopes:          maps.New[string, *Scope](),
+		principals:      maps.New[string, *Principal](),
+		roles:           maps.New[string, *Role](),
+		attributes:      maps.New[string, *Attribute](),
+		attributeGroups: maps.New[string, *AttributeGroup](),
+		trie:            trie.New[Data](FilterFunc),
+		hierarchy:       maps.New[string, []any](),
 	}
 }
 
@@ -75,7 +73,7 @@ func (u *RoleManager) TotalScopes() uintptr {
 }
 
 func (u *RoleManager) TenantChildren(t string) []any {
-	if hierarchy, exists := u.hierarchy[t]; exists {
+	if hierarchy, exists := u.hierarchy.Get(t); exists {
 		return hierarchy
 	}
 	tenant, exists := u.GetTenant(t)
@@ -83,7 +81,7 @@ func (u *RoleManager) TenantChildren(t string) []any {
 		return nil
 	}
 	hierarchy := tenant.GetDescendants()
-	u.hierarchy[t] = utils.Compact(hierarchy)
+	u.hierarchy.Set(t, utils.Compact(hierarchy))
 	return hierarchy
 }
 

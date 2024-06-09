@@ -31,11 +31,11 @@ func (u *RoleManager) Authorize(principalID string, options ...func(*Option)) bo
 	if u.authorize(noActivity, principalID, svr, tFlagProvided, tnFlagProvided, tsFlagProvided, tnsFlagProvided, nsFlagProvided) {
 		return true
 	}
-	for _, tenant := range userRoles {
-		if svr.tenant == tenant.Tenant && svr.tenant != nil {
+	for tenant := range userRoles {
+		if svr.tenant == tenant && svr.tenant != nil {
 			continue
 		}
-		svr.tenant = tenant.Tenant
+		svr.tenant = tenant
 		if u.authorize(noActivity, principalID, svr, tFlagProvided, tnFlagProvided, tsFlagProvided, tnsFlagProvided, nsFlagProvided) {
 			return true
 		}
@@ -120,21 +120,27 @@ func (u *RoleManager) checkActivity(principalID string, svr *Option, tFlagProvid
 
 func (u *RoleManager) collectRoles(principalID string, tenant any) (roles, allowedRoles []string) {
 	for _, d := range u.GetRolesByTenant(tenant) {
-		if d.Principal == principalID {
-			roles = append(roles, d.Role.(string))
+		if d.Role != nil {
+			if d.Principal == principalID {
+				roles = append(roles, d.Role.(string))
+			}
+			allowedRoles = append(allowedRoles, d.Role.(string))
 		}
-		allowedRoles = append(allowedRoles, d.Role.(string))
 	}
 	return
 }
 
 func (u *RoleManager) collectRolesByTenantAndNamespace(principalID string, tenant, namespace any) (roles, allowedRoles []string) {
 	for _, d := range u.GetRolesByTenant(tenant) {
-		allowedRoles = append(allowedRoles, d.Role.(string))
+		if d.Role != nil {
+			allowedRoles = append(allowedRoles, d.Role.(string))
+		}
 	}
 	for _, d := range u.GetRolesForPrincipalByTenantAndNamespace(principalID, tenant, namespace) {
 		if d.Namespace == nil || d.Namespace == namespace {
-			roles = append(roles, d.Role.(string))
+			if d.Role != nil {
+				roles = append(roles, d.Role.(string))
+			}
 		}
 	}
 	return
@@ -142,11 +148,15 @@ func (u *RoleManager) collectRolesByTenantAndNamespace(principalID string, tenan
 
 func (u *RoleManager) collectRolesByTenantAndScope(principalID string, tenant, scope any) (roles, allowedRoles []string) {
 	for _, d := range u.GetRolesByTenant(tenant) {
-		allowedRoles = append(allowedRoles, d.Role.(string))
+		if d.Role != nil {
+			allowedRoles = append(allowedRoles, d.Role.(string))
+		}
 	}
 	for _, d := range u.GetRolesForPrincipalByTenantAndScope(principalID, tenant, scope) {
 		if d.Scope == nil || d.Scope == scope {
-			roles = append(roles, d.Role.(string))
+			if d.Role != nil {
+				roles = append(roles, d.Role.(string))
+			}
 		}
 	}
 	return
@@ -155,11 +165,15 @@ func (u *RoleManager) collectRolesByTenantAndScope(principalID string, tenant, s
 func (u *RoleManager) collectRolesByNamespaceAndScope(principalID string, namespace, scope any) (roles, allowedRoles []string) {
 	for _, t := range u.GetTenants(principalID) {
 		for _, d := range u.GetRolesByTenant(t.Tenant) {
-			allowedRoles = append(allowedRoles, d.Role.(string))
+			if d.Role != nil {
+				allowedRoles = append(allowedRoles, d.Role.(string))
+			}
 		}
 		for _, d := range u.GetRolesForPrincipalByTenantNamespaceAndScope(principalID, t.Tenant, namespace, scope) {
-			if (d.Namespace == nil || d.Namespace == namespace) && (d.Scope == nil || d.Scope == scope) {
-				roles = append(roles, d.Role.(string))
+			if d.Role != nil {
+				if (d.Namespace == nil || d.Namespace == namespace) && (d.Scope == nil || d.Scope == scope) {
+					roles = append(roles, d.Role.(string))
+				}
 			}
 		}
 	}
@@ -168,11 +182,15 @@ func (u *RoleManager) collectRolesByNamespaceAndScope(principalID string, namesp
 
 func (u *RoleManager) collectRolesByTenantNamespaceAndScope(principalID string, tenant, namespace, scope any) (roles, allowedRoles []string) {
 	for _, d := range u.GetRolesByTenant(tenant) {
-		allowedRoles = append(allowedRoles, d.Role.(string))
+		if d.Role != nil {
+			allowedRoles = append(allowedRoles, d.Role.(string))
+		}
 	}
 	for _, d := range u.GetRolesForPrincipalByTenantNamespaceAndScope(principalID, tenant, namespace, scope) {
-		if (d.Namespace == nil || d.Namespace == namespace) && (d.Scope == nil || d.Scope == scope) {
-			roles = append(roles, d.Role.(string))
+		if d.Role != nil {
+			if (d.Namespace == nil || d.Namespace == namespace) && (d.Scope == nil || d.Scope == scope) {
+				roles = append(roles, d.Role.(string))
+			}
 		}
 	}
 	return
