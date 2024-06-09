@@ -17,7 +17,8 @@ type RoleManager struct {
 	attributes      maps.IMap[string, *Attribute]
 	attributeGroups maps.IMap[string, *AttributeGroup]
 	trie            *trie.Trie[Data]
-	hierarchy       maps.IMap[string, []any]
+	hierarchy       map[string][]any
+	principalCache  map[string]map[string]struct{}
 }
 
 func New() *RoleManager {
@@ -30,7 +31,8 @@ func New() *RoleManager {
 		attributes:      maps.New[string, *Attribute](),
 		attributeGroups: maps.New[string, *AttributeGroup](),
 		trie:            trie.New[Data](FilterFunc),
-		hierarchy:       maps.New[string, []any](),
+		hierarchy:       make(map[string][]any),
+		principalCache:  make(map[string]map[string]struct{}),
 	}
 }
 
@@ -73,7 +75,7 @@ func (u *RoleManager) TotalScopes() uintptr {
 }
 
 func (u *RoleManager) TenantChildren(t string) []any {
-	if hierarchy, exists := u.hierarchy.Get(t); exists {
+	if hierarchy, exists := u.hierarchy[t]; exists {
 		return hierarchy
 	}
 	tenant, exists := u.GetTenant(t)
@@ -81,7 +83,7 @@ func (u *RoleManager) TenantChildren(t string) []any {
 		return nil
 	}
 	hierarchy := tenant.GetDescendants()
-	u.hierarchy.Set(t, utils.Compact(hierarchy))
+	u.hierarchy[t] = utils.Compact(hierarchy)
 	return hierarchy
 }
 

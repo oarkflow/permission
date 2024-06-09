@@ -31,6 +31,10 @@ func (u *RoleManager) GetDescendantTenant(desc any) *Data {
 }
 
 func (u *RoleManager) GetImplicitTenants(principalID string) map[string]struct{} {
+	principalTenant, exists := u.principalCache[principalID]
+	if exists {
+		return principalTenant
+	}
 	tenantPrincipal := u.search(Data{Principal: principalID}, filterTenantsByPrincipal)
 	existingTenant := make(map[string]struct{}, 0)
 	for _, rs := range tenantPrincipal {
@@ -47,6 +51,7 @@ func (u *RoleManager) GetImplicitTenants(principalID string) map[string]struct{}
 			}
 		}
 	}
+	u.principalCache[principalID] = existingTenant
 	return existingTenant
 }
 
