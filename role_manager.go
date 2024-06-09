@@ -102,3 +102,43 @@ func (u *RoleManager) AsString() string {
 	}
 	return utils.FromByte(data)
 }
+
+type Summary struct {
+	Tenants         uintptr `json:"tenants"`
+	Principals      uintptr `json:"principals"`
+	Namespaces      uintptr `json:"namespaces"`
+	Scopes          uintptr `json:"scopes"`
+	Roles           uintptr `json:"roles"`
+	AttributeGroups uintptr `json:"attribute_groups"`
+	Attributes      uintptr `json:"attributes"`
+}
+
+func (u *RoleManager) Summary() Summary {
+	return Summary{
+		Tenants:         u.TotalTenants(),
+		Namespaces:      u.TotalNamespaces(),
+		Scopes:          u.TotalScopes(),
+		Principals:      u.TotalPrincipals(),
+		Roles:           u.TotalRoles(),
+		AttributeGroups: u.TotalAttributeGroups(),
+		Attributes:      u.TotalAttributes(),
+	}
+}
+
+func (u *RoleManager) SummaryMap() map[string]any {
+	return map[string]any{
+		"tenants":          u.TotalTenants(),
+		"namespaces":       u.TotalNamespaces(),
+		"scopes":           u.TotalScopes(),
+		"principals":       u.TotalPrincipals(),
+		"roles":            u.TotalRoles(),
+		"attribute_groups": u.TotalAttributeGroups(),
+		"attributes":       u.TotalAttributes(),
+	}
+}
+
+func (u *RoleManager) String() string {
+	summary := u.Summary()
+	bt, _ := json.Marshal(summary)
+	return utils.ToString(bt)
+}

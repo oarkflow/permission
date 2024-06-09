@@ -56,10 +56,18 @@ func (c *Tenant) AddNamespaces(nms ...*Namespace) {
 	}
 }
 
+func (c *Tenant) AddScopesToNamespace(namespaceID, scopeID string) {
+	c.manager.AddData(&Data{Tenant: c.id, Namespace: namespaceID, Scope: scopeID})
+}
+
 func (c *Tenant) SetDefaultNamespace(nms string) {
 	if n, ok := c.manager.namespaces.Get(nms); ok {
 		c.defaultNamespace = n
 	}
+}
+
+func (c *Tenant) AddPrincipalInNamespace(userID, namespaceID, roleID string) {
+	c.manager.AddData(&Data{Tenant: c.id, Namespace: namespaceID, Role: roleID, Principal: userID})
 }
 
 func (c *Tenant) AddRole(n *Role) *Role {

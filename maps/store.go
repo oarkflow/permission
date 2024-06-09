@@ -4,6 +4,8 @@ import (
 	"sync"
 )
 
+var _ IMap[string, any] = &SafeMap[string, any]{}
+
 type SafeMap[K comparable, V any] struct {
 	mu   sync.RWMutex
 	data map[K]V
