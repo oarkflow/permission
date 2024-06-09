@@ -30,11 +30,15 @@ func (u *RoleManager) GetDescendantTenant(desc any) *Data {
 	return u.trie.First(&Data{Tenant: desc})
 }
 
-func (u *RoleManager) GetImplicitTenants(principalID any) (data []*Data) {
-	results := u.search(Data{Principal: principalID}, filterTenantsByPrincipal)
+func (u *RoleManager) GetImplicitTenants(principalID string) (data []*Data) {
+	tenantPrincipal, exist := u.principalTenants[principalID]
+	if !exist {
+		tenantPrincipal := u.search(Data{Principal: principalID}, filterTenantsByPrincipal)
+		u.principalTenants[principalID] = tenantPrincipal
+	}
 	existingTenant := make(map[string]*Data)
 
-	for _, rs := range results {
+	for _, rs := range tenantPrincipal {
 		tenantID, ok := rs.Tenant.(string)
 		if !ok {
 			continue
@@ -47,13 +51,11 @@ func (u *RoleManager) GetImplicitTenants(principalID any) (data []*Data) {
 		existingTenant[tenantID] = rs
 
 		if canManage, ok := rs.ManageDescendants.(bool); ok && canManage {
-			if tenant, exists := u.tenants.Get(tenantID); exists {
-				for _, desc := range tenant.GetDescendants() {
-					if d := u.GetDescendantTenant(desc); d != nil {
-						descendantID, ok := d.Tenant.(string)
-						if ok {
-							existingTenant[descendantID] = d
-						}
+			for _, desc := range u.TenantChildren(tenantID) {
+				if d := u.GetDescendantTenant(desc); d != nil {
+					descendantID, ok := d.Tenant.(string)
+					if ok {
+						existingTenant[descendantID] = d
 					}
 				}
 			}

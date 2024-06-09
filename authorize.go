@@ -10,19 +10,18 @@ func (u *RoleManager) Authorize(principalID string, options ...func(*Option)) bo
 	if _, exists := u.GetPrincipal(principalID); !exists {
 		return false
 	}
-	userRoles := u.GetImplicitTenants(principalID)
-	if len(userRoles) == 0 {
-		return false
-	}
 	svr := &Option{}
 	for _, o := range options {
 		o(svr)
 	}
 
+	userRoles := u.GetImplicitTenants(principalID)
+	if len(userRoles) == 0 {
+		return false
+	}
 	if !u.validateResources(svr) {
 		return false
 	}
-
 	noActivity := svr.activityGroup == nil && svr.activity == nil
 	tFlagProvided := svr.tenant != nil && svr.namespace == nil && svr.scope == nil
 	tnFlagProvided := svr.tenant != nil && svr.namespace != nil && svr.scope == nil
