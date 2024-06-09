@@ -31,11 +31,7 @@ func (u *RoleManager) GetDescendantTenant(desc any) *Data {
 }
 
 func (u *RoleManager) GetImplicitTenants(principalID string) (data []*Data) {
-	tenantPrincipal, exist := u.principalTenants[principalID]
-	if !exist {
-		tenantPrincipal := u.search(Data{Principal: principalID}, filterTenantsByPrincipal)
-		u.principalTenants[principalID] = tenantPrincipal
-	}
+	tenantPrincipal := u.search(Data{Principal: principalID}, filterTenantsByPrincipal)
 	existingTenant := make(map[string]*Data)
 
 	for _, rs := range tenantPrincipal {
