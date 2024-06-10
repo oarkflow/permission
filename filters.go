@@ -6,7 +6,6 @@ import (
 
 type Data struct {
 	Tenant            any
-	ParentTenant      any
 	Namespace         any
 	Scope             any
 	Principal         any
