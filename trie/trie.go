@@ -3,8 +3,6 @@ package trie
 import (
 	"reflect"
 	"sync"
-
-	"github.com/oarkflow/permission/utils"
 )
 
 type DataProps any
@@ -79,13 +77,26 @@ func (t *Trie[T]) Data() []*T {
 
 func (t *Trie[T]) Insert(tp *T) {
 	node := t.root
-	fields := utils.GetFields(reflect.ValueOf(*tp))
-	for _, field := range fields {
-		child, _ := node.getChild(field)
-		if child == nil {
-			child = node.addChild(field)
+	fields := reflect.ValueOf(*tp)
+	switch reflect.ValueOf(*tp).Kind() {
+	case reflect.Struct:
+		for i := 0; i < fields.NumField(); i++ {
+			field := fields.Field(i).Interface()
+			child, _ := node.getChild(field)
+			if child == nil {
+				child = node.addChild(field)
+			}
+			node = child
 		}
-		node = child
+	case reflect.Map:
+		for _, key := range fields.MapKeys() {
+			field := fields.MapIndex(key).Interface()
+			child, _ := node.getChild(field)
+			if child == nil {
+				child = node.addChild(field)
+			}
+			node = child
+		}
 	}
 	node.isEnd = true
 	node.data = tp
