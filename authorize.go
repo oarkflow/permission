@@ -74,16 +74,16 @@ func (u *RoleManager) checkNoActivity(principalID string, svr *Option, tFlagProv
 		return utils.Contains(u.GetTenantsByPrincipal(principalID), svr.tenant)
 	}
 	if tnFlagProvided {
-		return utils.Contains(getNamespaceIDs(u.GetNamespaceForPrincipalByTenant(principalID, svr.tenant)), svr.namespace)
+		return utils.Contains(GetNamespaceIDs(u.GetNamespaceForPrincipalByTenant(principalID, svr.tenant)), svr.namespace)
 	}
 	if tsFlagProvided {
-		return utils.Contains(getScopeIDs(u.GetScopesForPrincipalByTenant(principalID, svr.tenant)), svr.scope)
+		return utils.Contains(GetScopeIDs(u.GetScopesForPrincipalByTenant(principalID, svr.tenant)), svr.scope)
 	}
 	if nsFlagProvided {
-		return utils.Contains(getScopeIDs(u.GetScopeForPrincipalByNamespace(principalID, svr.namespace)), svr.scope)
+		return utils.Contains(GetScopeIDs(u.GetScopeForPrincipalByNamespace(principalID, svr.namespace)), svr.scope)
 	}
 	if tnsFlagProvided {
-		return utils.Contains(getScopeIDs(u.GetScopesForPrincipalByTenantAndNamespace(principalID, svr.tenant, svr.namespace)), svr.scope)
+		return utils.Contains(GetScopeIDs(u.GetScopesForPrincipalByTenantAndNamespace(principalID, svr.tenant, svr.namespace)), svr.scope)
 	}
 	return false
 }

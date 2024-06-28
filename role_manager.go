@@ -40,21 +40,63 @@ func (u *RoleManager) Data() *trie.Trie[Data] {
 	return u.trie
 }
 
-func getNamespaceIDs(rs []*Data) (data []any) {
+func GetTenantIDs(rs []*Data) (data []any) {
+	seen := make(map[any]struct{})
 	for _, r := range rs {
-		if r.Namespace != nil {
-			data = append(data, r.Namespace)
+		if _, ok := seen[r.Tenant]; !ok {
+			seen[r.Tenant] = struct{}{}
+			data = append(data, r.Tenant)
 		}
 	}
+	clear(seen)
 	return
 }
 
-func getScopeIDs(rs []*Data) (data []any) {
+func GetPrincipalIDs(rs []*Data) (data []any) {
+	seen := make(map[any]struct{})
 	for _, r := range rs {
-		if r.Scope != nil {
+		if _, ok := seen[r.Principal]; !ok {
+			seen[r.Principal] = struct{}{}
+			data = append(data, r.Principal)
+		}
+	}
+	clear(seen)
+	return
+}
+
+func GetRoleIDs(rs []*Data) (data []any) {
+	seen := make(map[any]struct{})
+	for _, r := range rs {
+		if _, ok := seen[r.Role]; !ok {
+			seen[r.Role] = struct{}{}
+			data = append(data, r.Role)
+		}
+	}
+	clear(seen)
+	return
+}
+
+func GetNamespaceIDs(rs []*Data) (data []any) {
+	seen := make(map[any]struct{})
+	for _, r := range rs {
+		if _, ok := seen[r.Namespace]; !ok {
+			seen[r.Namespace] = struct{}{}
+			data = append(data, r.Namespace)
+		}
+	}
+	clear(seen)
+	return
+}
+
+func GetScopeIDs(rs []*Data) (data []any) {
+	seen := make(map[any]struct{})
+	for _, r := range rs {
+		if _, ok := seen[r.Scope]; !ok {
+			seen[r.Scope] = struct{}{}
 			data = append(data, r.Scope)
 		}
 	}
+	clear(seen)
 	return
 }
 
