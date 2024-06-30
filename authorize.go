@@ -90,6 +90,15 @@ func (u *RoleManager) checkNoActivity(principalID string, svr *Option, tFlagProv
 
 func (u *RoleManager) checkActivity(principalID string, svr *Option, tFlagProvided, tnFlagProvided, tsFlagProvided, tnsFlagProvided, nsFlagProvided bool) bool {
 	var allowedRoles, roles []string
+
+	if svr.activityGroup == nil {
+		return false
+	}
+
+	if svr.activity == nil {
+		return false
+	}
+
 	if tFlagProvided {
 		roles, allowedRoles = u.collectRoles(principalID, svr.tenant)
 	}
