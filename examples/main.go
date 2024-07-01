@@ -17,15 +17,16 @@ func main() {
 	// tenantA.SetDefaultNamespace(namespace.ID())
 	coder, qa, suspendManager, _ := v2myRoles(authorizer)
 	tenantA.AddRoles(coder, qa, suspendManager)
-	e29 := authorizer.AddScope(v2.NewScope("EntityA"))
-	e30 := authorizer.AddScope(v2.NewScope("EntityB"))
+	e29 := authorizer.AddScope(v2.NewScope("Entity29"))
+	e30 := authorizer.AddScope(v2.NewScope("Entity30"))
 	tenantA.AddScopes(e29)
 	tenantB.AddScopes(e30)
 
 	principalA := authorizer.AddPrincipal(v2.NewPrincipal("principalA"))
 
 	tenantA.AddPrincipal(principalA.ID(), true, coder.ID())
-	tenantA.AssignScopesToPrincipal(principalA.ID(), true, e29.ID())
+	fmt.Println(authorizer.GetImplicitScopesByPrincipal(principalA.ID()))
+	// fmt.Println(authorizer.GetScopeRolesByPrincipalTenantAndNamespace())
 	fmt.Println("R:", authorizer.Authorize(principalA.ID(),
 		v2.WithTenant("TenantA"),
 		v2.WithNamespace("NamespaceA"),

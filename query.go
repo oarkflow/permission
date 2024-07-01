@@ -1,6 +1,8 @@
 package permission
 
 import (
+	"fmt"
+
 	"github.com/oarkflow/permission/utils"
 )
 
@@ -58,6 +60,14 @@ func (u *RoleManager) GetImplicitTenants(principalID string) map[string]struct{}
 func (u *RoleManager) GetScopesByPrincipal(principalID any) (data []*Data) {
 	results := u.search(Data{Principal: principalID}, filterScopeByPrincipal)
 	return results
+}
+
+// @TODO - Need to work on this
+func (u *RoleManager) GetImplicitScopesByPrincipal(principalID any) (data []*Data) {
+	for tenant := range u.GetImplicitTenants(principalID.(string)) {
+		fmt.Println(len(u.GetScopesByTenant(tenant)))
+	}
+	return
 }
 
 func (u *RoleManager) GetRolesByTenant(tenantID any) (data []*Data) {

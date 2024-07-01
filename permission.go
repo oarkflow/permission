@@ -80,3 +80,36 @@ func (u *RoleManager) Roles() (data []string) {
 	})
 	return
 }
+
+type AttributeResponse struct {
+	Attribute Attribute `json:"attribute"`
+	Roles     []string  `json:"roles"`
+}
+
+func (u *RoleManager) GetRolesForAvailablePermissions() map[string][]AttributeResponse {
+	response := make(map[string][]AttributeResponse)
+	seen := make(map[string]map[Attribute][]string)
+	u.roles.ForEach(func(_ string, role *Role) bool {
+		for group, permissions := range role.GetAllImplicitPermissions() {
+			groupPermissions, ok := seen[group]
+			if !ok {
+				groupPermissions = make(map[Attribute][]string)
+			}
+			for _, permission := range permissions {
+				groupPermissions[permission] = append(groupPermissions[permission], role.id)
+			}
+			seen[group] = groupPermissions
+		}
+		return true
+	})
+	for category, attributeRoles := range seen {
+		for attribute, roles := range attributeRoles {
+			response[category] = append(response[category], AttributeResponse{
+				Attribute: attribute,
+				Roles:     roles,
+			})
+		}
+	}
+	clear(seen)
+	return response
+}
