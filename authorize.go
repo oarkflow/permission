@@ -22,7 +22,7 @@ func (u *RoleManager) Authorize(principalID string, options ...func(*Option)) bo
 	if !u.validateResources(svr) {
 		return false
 	}
-	noActivity := svr.activityGroup == nil && svr.activity == nil
+	noActivity := !(svr.activityGroup != nil && svr.activity != nil)
 	tFlagProvided := svr.tenant != nil && svr.namespace == nil && svr.scope == nil
 	tnFlagProvided := svr.tenant != nil && svr.namespace != nil && svr.scope == nil
 	tsFlagProvided := svr.tenant != nil && svr.namespace == nil && svr.scope != nil
