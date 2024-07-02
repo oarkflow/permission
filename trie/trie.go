@@ -35,27 +35,19 @@ func (node *Node[T]) getChild(field any) (*Node[T], bool) {
 }
 
 type Trie[T DataProps] struct {
-	root      *Node[T]
-	match     SearchFunc[T]
-	dataSlice sync.Pool
+	root  *Node[T]
+	match SearchFunc[T]
 }
 
 func New[T DataProps](match SearchFunc[T]) *Trie[T] {
 	return &Trie[T]{
-		root: &Node[T]{child: make(map[any]*Node[T])},
-		dataSlice: sync.Pool{
-			New: func() any {
-				return &[]*T{}
-			},
-		},
+		root:  &Node[T]{child: make(map[any]*Node[T])},
 		match: match,
 	}
 }
 
 func (t *Trie[T]) search(filter *T, callback SearchFunc[T], first ...bool) []*T {
-	results := t.dataSlice.Get().(*[]*T)
-	defer t.dataSlice.Put(results)
-	*results = (*results)[:0]
+	results := &[]*T{}
 	t.searchIterative(filter, callback, results, first...)
 	return *results
 }
