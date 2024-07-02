@@ -63,6 +63,10 @@ func filterScopeByTenantAndNamespace(filter *Data, row *Data) bool {
 	return MatchTenant(row, filter) && MatchNamespace(row, filter) && !utils.IsNil(row.Scope)
 }
 
+func filterPrincipalByTenantAndNamespace(filter *Data, row *Data) bool {
+	return MatchTenant(row, filter) && MatchNamespace(row, filter) && MatchPrincipal(row, filter)
+}
+
 func filterScopeForPrincipalByTenant(filter *Data, row *Data) bool {
 	if utils.IsNil(filter.Tenant) && utils.IsNil(filter.Principal) || utils.IsNil(row.Scope) {
 		return false
