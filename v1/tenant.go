@@ -1,9 +1,7 @@
 package v1
 
-import (
-	"github.com/oarkflow/permission/maps"
+github.com/oarkflow/xsync""
 )
-
 type Tenant struct {
 	namespaces       maps.IMap[string, *Namespace]
 	roles            maps.IMap[string, *Role]

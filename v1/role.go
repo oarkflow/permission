@@ -4,11 +4,10 @@ import (
 	"errors"
 	"slices"
 
-	"github.com/oarkflow/permission/maps"
+github.com/oarkflow/xsync""
 
-	"github.com/oarkflow/permission/utils"
+"github.com/oarkflow/permission/utils"
 )
-
 type Attribute struct {
 	resource string
 	action   string

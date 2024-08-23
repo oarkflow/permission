@@ -5,7 +5,8 @@ import (
 	"fmt"
 	"slices"
 
-	"github.com/oarkflow/permission/maps"
+	maps "github.com/oarkflow/xsync"
+
 	"github.com/oarkflow/permission/utils"
 )
 
@@ -122,7 +123,7 @@ func (r *Role) AddPermission(resourceGroup string, permissions ...*Attribute) er
 	if !exists || resourceGroupAttributes == nil {
 		resourceGroupAttributes = &AttributeGroup{
 			id:          resourceGroup,
-			permissions: maps.New[string, *Attribute](),
+			permissions: maps.NewMap[string, *Attribute](),
 		}
 	}
 	perm := resourceGroupAttributes.permissions

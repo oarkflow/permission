@@ -1,13 +1,13 @@
 package permission
 
 import (
-	"github.com/oarkflow/permission/maps"
+	maps "github.com/oarkflow/xsync"
 )
 
 func NewTenant(id string) *Tenant {
 	return &Tenant{
 		id:          id,
-		descendants: maps.New[string, *Tenant](),
+		descendants: maps.NewMap[string, *Tenant](),
 	}
 }
 func NewNamespace(id string) *Namespace {
@@ -24,15 +24,15 @@ func NewScope(id string) *Scope {
 func NewRole(id string) *Role {
 	return &Role{
 		id:          id,
-		permissions: maps.New[string, *AttributeGroup](),
-		descendants: maps.New[string, *Role](),
+		permissions: maps.NewMap[string, *AttributeGroup](),
+		descendants: maps.NewMap[string, *Role](),
 	}
 }
 
 func NewAttributeGroup(id string) *AttributeGroup {
 	return &AttributeGroup{
 		id:          id,
-		permissions: maps.New[string, *Attribute](),
+		permissions: maps.NewMap[string, *Attribute](),
 	}
 }
 

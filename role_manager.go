@@ -3,7 +3,8 @@ package permission
 import (
 	"encoding/json"
 
-	"github.com/oarkflow/permission/maps"
+	maps "github.com/oarkflow/xsync"
+
 	"github.com/oarkflow/permission/trie"
 	"github.com/oarkflow/permission/utils"
 )
@@ -23,13 +24,13 @@ type RoleManager struct {
 
 func New() *RoleManager {
 	return &RoleManager{
-		tenants:         maps.New[string, *Tenant](),
-		namespaces:      maps.New[string, *Namespace](),
-		scopes:          maps.New[string, *Scope](),
-		principals:      maps.New[string, *Principal](),
-		roles:           maps.New[string, *Role](),
-		attributes:      maps.New[string, *Attribute](),
-		attributeGroups: maps.New[string, *AttributeGroup](),
+		tenants:         maps.NewMap[string, *Tenant](),
+		namespaces:      maps.NewMap[string, *Namespace](),
+		scopes:          maps.NewMap[string, *Scope](),
+		principals:      maps.NewMap[string, *Principal](),
+		roles:           maps.NewMap[string, *Role](),
+		attributes:      maps.NewMap[string, *Attribute](),
+		attributeGroups: maps.NewMap[string, *AttributeGroup](),
 		trie:            trie.New[Data](FilterFunc),
 		hierarchy:       make(map[string][]any),
 		principalCache:  make(map[string]map[string]struct{}),
@@ -104,16 +105,16 @@ func (u *RoleManager) AddData(data *Data) {
 	u.trie.Insert(data)
 }
 
-func (u *RoleManager) TotalRoles() uintptr {
-	return u.roles.Len()
+func (u *RoleManager) TotalRoles() int {
+	return u.roles.Size()
 }
 
-func (u *RoleManager) TotalNamespaces() uintptr {
-	return u.namespaces.Len()
+func (u *RoleManager) TotalNamespaces() int {
+	return u.namespaces.Size()
 }
 
-func (u *RoleManager) TotalScopes() uintptr {
-	return u.scopes.Len()
+func (u *RoleManager) TotalScopes() int {
+	return u.scopes.Size()
 }
 
 func (u *RoleManager) TenantChildren(t string) []any {
@@ -129,12 +130,12 @@ func (u *RoleManager) TenantChildren(t string) []any {
 	return hierarchy
 }
 
-func (u *RoleManager) TotalTenants() uintptr {
-	return u.tenants.Len()
+func (u *RoleManager) TotalTenants() int {
+	return u.tenants.Size()
 }
 
-func (u *RoleManager) TotalPrincipals() uintptr {
-	return u.principals.Len()
+func (u *RoleManager) TotalPrincipals() int {
+	return u.principals.Size()
 }
 
 func (u *RoleManager) AsString() string {
@@ -146,13 +147,13 @@ func (u *RoleManager) AsString() string {
 }
 
 type Summary struct {
-	Tenants         uintptr `json:"tenants"`
-	Principals      uintptr `json:"principals"`
-	Namespaces      uintptr `json:"namespaces"`
-	Scopes          uintptr `json:"scopes"`
-	Roles           uintptr `json:"roles"`
-	AttributeGroups uintptr `json:"attribute_groups"`
-	Attributes      uintptr `json:"attributes"`
+	Tenants         int `json:"tenants"`
+	Principals      int `json:"principals"`
+	Namespaces      int `json:"namespaces"`
+	Scopes          int `json:"scopes"`
+	Roles           int `json:"roles"`
+	AttributeGroups int `json:"attribute_groups"`
+	Attributes      int `json:"attributes"`
 }
 
 func (u *RoleManager) Summary() Summary {

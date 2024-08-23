@@ -3,7 +3,7 @@ package permission
 import (
 	"errors"
 
-	"github.com/oarkflow/permission/maps"
+	maps "github.com/oarkflow/xsync"
 )
 
 func WithTenant(tenant any) func(*Option) {

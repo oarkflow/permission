@@ -24,8 +24,8 @@ func (u *RoleManager) GetAttribute(attr string) (*Attribute, bool) {
 	return u.attributes.Get(attr)
 }
 
-func (u *RoleManager) TotalAttributes() uintptr {
-	return u.attributes.Len()
+func (u *RoleManager) TotalAttributes() int {
+	return u.attributes.Size()
 }
 
 func (u *RoleManager) Attributes() (data []string) {

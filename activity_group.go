@@ -28,8 +28,8 @@ func (u *RoleManager) GetAttributeGroup(id string) (*AttributeGroup, bool) {
 	return u.attributeGroups.Get(id)
 }
 
-func (u *RoleManager) TotalAttributeGroups() uintptr {
-	return u.attributeGroups.Len()
+func (u *RoleManager) TotalAttributeGroups() int {
+	return u.attributeGroups.Size()
 }
 
 type ScopeRoles struct {
