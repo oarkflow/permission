@@ -8,7 +8,7 @@ import (
 )
 
 func main() {
-	t := trie.New(permission.FilterFunc)
+	t := trie.New(permission.FilterFunc, permission.DataKeyExtractor)
 	tp1 := &permission.Data{
 		Tenant:            "tenant1",
 		Principal:         "principal1",

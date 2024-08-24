@@ -1,7 +1,7 @@
 package trie
 
 import (
-	"sync"
+	maps "github.com/oarkflow/xsync"
 )
 
 type DataProps any
@@ -11,31 +11,32 @@ type SearchFunc[T DataProps] func(filter *T, row *T) bool
 type KeyExtractor[T DataProps] func(data *T) []any
 
 type Node[T DataProps] struct {
-	mu    sync.RWMutex
-	child map[any]*Node[T]
+	child maps.IMap[any, *Node[T]]
 	isEnd bool
 	data  *T
 }
 
 func NewNode[T any]() *Node[T] {
-	return &Node[T]{child: make(map[any]*Node[T])}
+	return &Node[T]{child: maps.NewMap[any, *Node[T]]()}
 }
 
 func (node *Node[T]) addChild(field any) *Node[T] {
-	node.mu.Lock()
-	defer node.mu.Unlock()
-	if n, exists := node.child[field]; exists {
+	if field == nil {
+		return nil
+	}
+	if n, exists := node.child.Get(field); exists {
 		return n
 	}
 	n := NewNode[T]()
-	node.child[field] = n
+	node.child.Set(field, n)
 	return n
 }
 
 func (node *Node[T]) getChild(field any) (*Node[T], bool) {
-	node.mu.RLock()
-	defer node.mu.RUnlock()
-	n, exists := node.child[field]
+	if field == nil {
+		return nil, false
+	}
+	n, exists := node.child.Get(field)
 	return n, exists
 }
 
@@ -58,6 +59,9 @@ func (t *Trie[T]) Insert(data *T) {
 	keys := t.keyExtractor(data)
 
 	for _, key := range keys {
+		if key == nil {
+			continue
+		}
 		child, _ := node.getChild(key)
 		if child == nil {
 			child = node.addChild(key)
@@ -114,8 +118,9 @@ func (t *Trie[T]) searchIterative(filter *T, callback SearchFunc[T], results *[]
 		if len(first) > 0 && first[0] && len(*results) == 1 {
 			return
 		}
-		for _, child := range node.child {
+		node.child.ForEach(func(_ any, child *Node[T]) bool {
 			stack = append(stack, child)
-		}
+			return true
+		})
 	}
 }

@@ -6,7 +6,7 @@ import (
 	v2 "github.com/oarkflow/permission"
 )
 
-func main() {
+func ma1in() {
 	authorizer := v2.New()
 	v2addAttributes(authorizer)
 	tenantA := authorizer.AddTenant(v2.NewTenant("TenantA"))
@@ -25,7 +25,6 @@ func main() {
 	principalA := authorizer.AddPrincipal(v2.NewPrincipal("principalA"))
 	tenantA.AddScopesToNamespace(namespace.ID(), e29.ID())
 	tenantA.AddPrincipal(principalA.ID(), true, coder.ID())
-	fmt.Println(authorizer.GetScopesWithRolesForPrincipal(principalA.ID(), tenantB.ID(), namespace.ID()))
 	// fmt.Println(authorizer.GetScopeRolesByPrincipalTenantAndNamespace())
 	fmt.Println("R:", authorizer.Authorize(principalA.ID(),
 		v2.WithTenant("TenantA"),
