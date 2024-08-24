@@ -82,7 +82,7 @@ func (t *Trie[T]) FirstFunc(filter *T, callback SearchFunc[T]) *T {
 }
 
 func (t *Trie[T]) first(filter *T, callback SearchFunc[T]) *T {
-	rs := t.search(filter, callback)
+	rs := t.search(filter, callback, true)
 	if len(rs) > 0 {
 		return rs[0]
 	}
@@ -109,13 +109,14 @@ func (t *Trie[T]) SearchFunc(filter *T, callback SearchFunc[T]) []*T {
 
 func (t *Trie[T]) searchIterative(filter *T, callback SearchFunc[T], results *[]*T, first ...bool) {
 	stack := []*Node[T]{t.root}
+	shouldStop := len(first) > 0 && first[0]
 	for len(stack) > 0 {
 		node := stack[len(stack)-1]
 		stack = stack[:len(stack)-1]
 		if node.isEnd && callback(filter, node.data) {
 			*results = append(*results, node.data)
 		}
-		if len(first) > 0 && first[0] && len(*results) == 1 {
+		if shouldStop && len(*results) == 1 {
 			return
 		}
 		node.child.ForEach(func(_ any, child *Node[T]) bool {

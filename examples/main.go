@@ -6,7 +6,7 @@ import (
 	v2 "github.com/oarkflow/permission"
 )
 
-func ma1in() {
+func main() {
 	authorizer := v2.New()
 	v2addAttributes(authorizer)
 	tenantA := authorizer.AddTenant(v2.NewTenant("TenantA"))
@@ -14,6 +14,7 @@ func ma1in() {
 	namespace := authorizer.AddNamespace(v2.NewNamespace("NamespaceA"))
 	tenantA.AddNamespaces(namespace)
 	tenantA.AddDescendant(tenantB)
+	fmt.Println(authorizer.GetDescendantTenant(tenantA.ID()))
 	// tenantA.SetDefaultNamespace(namespace.ID())
 	coder, qa, suspendManager, _ := v2myRoles(authorizer)
 	tenantA.AddRoles(coder, qa, suspendManager)

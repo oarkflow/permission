@@ -1,3 +1,4 @@
 .idea
 permission.iml
 /examples/company_permissions.json
+.DS_Store

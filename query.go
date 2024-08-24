@@ -28,8 +28,12 @@ func (u *RoleManager) GetTenants(principalID any) (data []*Data) {
 	return results
 }
 
-func (u *RoleManager) GetDescendantTenant(desc any) *Data {
-	return u.trie.First(&Data{Tenant: desc})
+func (u *RoleManager) GetDescendantTenant(desc any) []any {
+	tenant, ok := u.GetTenant(utils.ToString(desc))
+	if !ok {
+		return nil
+	}
+	return tenant.GetDescendants()
 }
 
 func (u *RoleManager) GetImplicitTenants(principalID string) map[string]struct{} {
