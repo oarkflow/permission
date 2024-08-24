@@ -1,13 +1,14 @@
 package trie
 
 import (
-	"reflect"
 	"sync"
 )
 
 type DataProps any
 
 type SearchFunc[T DataProps] func(filter *T, row *T) bool
+
+type KeyExtractor[T DataProps] func(data *T) []any
 
 type Node[T DataProps] struct {
 	mu    sync.RWMutex
@@ -16,13 +17,17 @@ type Node[T DataProps] struct {
 	data  *T
 }
 
+func NewNode[T any]() *Node[T] {
+	return &Node[T]{child: make(map[any]*Node[T])}
+}
+
 func (node *Node[T]) addChild(field any) *Node[T] {
 	node.mu.Lock()
 	defer node.mu.Unlock()
 	if n, exists := node.child[field]; exists {
 		return n
 	}
-	n := &Node[T]{child: make(map[any]*Node[T])}
+	n := NewNode[T]()
 	node.child[field] = n
 	return n
 }
@@ -35,52 +40,33 @@ func (node *Node[T]) getChild(field any) (*Node[T], bool) {
 }
 
 type Trie[T DataProps] struct {
-	root  *Node[T]
-	match SearchFunc[T]
+	root         *Node[T]
+	match        SearchFunc[T]
+	keyExtractor KeyExtractor[T]
 }
 
-func New[T DataProps](match SearchFunc[T]) *Trie[T] {
+func New[T any](match SearchFunc[T], keyExtractor KeyExtractor[T]) *Trie[T] {
 	return &Trie[T]{
-		root:  &Node[T]{child: make(map[any]*Node[T])},
-		match: match,
+		root:         NewNode[T](),
+		match:        match,
+		keyExtractor: keyExtractor,
 	}
 }
 
-func (t *Trie[T]) search(filter *T, callback SearchFunc[T], first ...bool) []*T {
-	results := &[]*T{}
-	t.searchIterative(filter, callback, results, first...)
-	return *results
-}
-
-func (t *Trie[T]) Data() []*T {
-	return t.search(nil, func(f *T, n *T) bool { return true })
-}
-
-func (t *Trie[T]) Insert(tp *T) {
+func (t *Trie[T]) Insert(data *T) {
 	node := t.root
-	fields := reflect.ValueOf(*tp)
-	switch reflect.ValueOf(*tp).Kind() {
-	case reflect.Struct:
-		for i := 0; i < fields.NumField(); i++ {
-			field := fields.Field(i).Interface()
-			child, _ := node.getChild(field)
-			if child == nil {
-				child = node.addChild(field)
-			}
-			node = child
+	keys := t.keyExtractor(data)
+
+	for _, key := range keys {
+		child, _ := node.getChild(key)
+		if child == nil {
+			child = node.addChild(key)
 		}
-	case reflect.Map:
-		for _, key := range fields.MapKeys() {
-			field := fields.MapIndex(key).Interface()
-			child, _ := node.getChild(field)
-			if child == nil {
-				child = node.addChild(field)
-			}
-			node = child
-		}
+		node = child
 	}
+
 	node.isEnd = true
-	node.data = tp
+	node.data = data
 }
 
 func (t *Trie[T]) First(filter *T) *T {
@@ -101,6 +87,16 @@ func (t *Trie[T]) first(filter *T, callback SearchFunc[T]) *T {
 
 func (t *Trie[T]) Search(filter *T) []*T {
 	return t.search(filter, t.match)
+}
+
+func (t *Trie[T]) search(filter *T, callback SearchFunc[T], first ...bool) []*T {
+	results := &[]*T{}
+	t.searchIterative(filter, callback, results, first...)
+	return *results
+}
+
+func (t *Trie[T]) Data() []*T {
+	return t.search(nil, func(f *T, n *T) bool { return true })
 }
 
 func (t *Trie[T]) SearchFunc(filter *T, callback SearchFunc[T]) []*T {

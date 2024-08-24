@@ -33,7 +33,7 @@ func (u *RoleManager) GetDescendantTenant(desc any) *Data {
 }
 
 func (u *RoleManager) GetImplicitTenants(principalID string) map[string]struct{} {
-	principalTenant, exists := u.principalCache[principalID]
+	principalTenant, exists := u.principalCache.Get(principalID)
 	if exists {
 		return principalTenant
 	}
@@ -53,7 +53,7 @@ func (u *RoleManager) GetImplicitTenants(principalID string) map[string]struct{}
 			}
 		}
 	}
-	u.principalCache[principalID] = existingTenant
+	u.principalCache.Set(principalID, existingTenant)
 	return existingTenant
 }
 

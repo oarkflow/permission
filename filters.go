@@ -13,6 +13,20 @@ type Data struct {
 	ManageDescendants any
 }
 
+func DataKeyExtractor(data *Data) []any {
+	if data == nil {
+		return []any{}
+	}
+	return []any{
+		data.Tenant,
+		data.Namespace,
+		data.Scope,
+		data.Principal,
+		data.Role,
+		data.ManageDescendants,
+	}
+}
+
 func FilterFunc(filter *Data, row *Data) bool {
 	if !utils.IsNil(filter.Tenant) && !MatchTenant(row, filter) {
 		return false
