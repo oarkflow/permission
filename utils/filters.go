@@ -5,7 +5,7 @@ func IsNil(value any) bool {
 }
 
 func Match(value, filter any) bool {
-	return !IsNil(filter) && value == filter
+	return value == filter
 }
 
 func FilterByFields[T any](filter *T, row *T, fields ...func(*T) any) bool {

@@ -16,27 +16,27 @@ type Node[T DataProps] struct {
 	data  *T
 }
 
-func NewNode[T any]() *Node[T] {
+func NewNode[T DataProps]() *Node[T] {
 	return &Node[T]{child: maps.NewMap[any, *Node[T]]()}
 }
 
-func (node *Node[T]) addChild(field any) *Node[T] {
-	if field == nil {
-		return nil
-	}
-	if n, exists := node.child.Get(field); exists {
-		return n
-	}
-	n := NewNode[T]()
-	node.child.Set(field, n)
-	return n
-}
-
-func (node *Node[T]) getChild(field any) (*Node[T], bool) {
-	if field == nil {
+func (node *Node[T]) addChild(key any) (*Node[T], bool) {
+	if key == nil {
 		return nil, false
 	}
-	n, exists := node.child.Get(field)
+	if n, exists := node.child.Get(key); exists {
+		return n, true
+	}
+	n := NewNode[T]()
+	node.child.Set(key, n)
+	return n, false
+}
+
+func (node *Node[T]) getChild(key any) (*Node[T], bool) {
+	if key == nil {
+		return nil, false
+	}
+	n, exists := node.child.Get(key)
 	return n, exists
 }
 
@@ -46,7 +46,10 @@ type Trie[T DataProps] struct {
 	keyExtractor KeyExtractor[T]
 }
 
-func New[T any](match SearchFunc[T], keyExtractor KeyExtractor[T]) *Trie[T] {
+func New[T DataProps](match SearchFunc[T], keyExtractor KeyExtractor[T]) *Trie[T] {
+	if match == nil || keyExtractor == nil {
+		panic("match and keyExtractor functions cannot be nil")
+	}
 	return &Trie[T]{
 		root:         NewNode[T](),
 		match:        match,
@@ -55,17 +58,20 @@ func New[T any](match SearchFunc[T], keyExtractor KeyExtractor[T]) *Trie[T] {
 }
 
 func (t *Trie[T]) Insert(data *T) {
+	if data == nil {
+		return
+	}
 	node := t.root
 	keys := t.keyExtractor(data)
+	if keys == nil {
+		panic("keyExtractor returned nil keys")
+	}
 
 	for _, key := range keys {
 		if key == nil {
 			continue
 		}
-		child, _ := node.getChild(key)
-		if child == nil {
-			child = node.addChild(key)
-		}
+		child, _ := node.addChild(key)
 		node = child
 	}
 
@@ -82,9 +88,9 @@ func (t *Trie[T]) FirstFunc(filter *T, callback SearchFunc[T]) *T {
 }
 
 func (t *Trie[T]) first(filter *T, callback SearchFunc[T]) *T {
-	rs := t.search(filter, callback, true)
-	if len(rs) > 0 {
-		return rs[0]
+	results := t.search(filter, callback, true)
+	if len(results) > 0 {
+		return results[0]
 	}
 	return nil
 }
@@ -93,35 +99,40 @@ func (t *Trie[T]) Search(filter *T) []*T {
 	return t.search(filter, t.match)
 }
 
-func (t *Trie[T]) search(filter *T, callback SearchFunc[T], first ...bool) []*T {
-	results := &[]*T{}
-	t.searchIterative(filter, callback, results, first...)
-	return *results
-}
-
-func (t *Trie[T]) Data() []*T {
-	return t.search(nil, func(f *T, n *T) bool { return true })
+func (t *Trie[T]) search(filter *T, callback SearchFunc[T], stopAfterFirst ...bool) []*T {
+	var results []*T
+	t.searchIterative(filter, callback, &results, stopAfterFirst...)
+	return results
 }
 
 func (t *Trie[T]) SearchFunc(filter *T, callback SearchFunc[T]) []*T {
 	return t.search(filter, callback)
 }
 
-func (t *Trie[T]) searchIterative(filter *T, callback SearchFunc[T], results *[]*T, first ...bool) {
-	stack := []*Node[T]{t.root}
-	shouldStop := len(first) > 0 && first[0]
+func (t *Trie[T]) searchIterative(filter *T, callback SearchFunc[T], results *[]*T, stopAfterFirst ...bool) {
+	stack := make([]*Node[T], 0, 64) // Increased initial capacity for optimization
+	stack = append(stack, t.root)
+	stop := len(stopAfterFirst) > 0 && stopAfterFirst[0]
+
 	for len(stack) > 0 {
 		node := stack[len(stack)-1]
 		stack = stack[:len(stack)-1]
+
 		if node.isEnd && callback(filter, node.data) {
 			*results = append(*results, node.data)
+			if stop {
+				return
+			}
 		}
-		if shouldStop && len(*results) == 1 {
-			return
-		}
+
 		node.child.ForEach(func(_ any, child *Node[T]) bool {
 			stack = append(stack, child)
 			return true
 		})
 	}
+}
+
+func (t *Trie[T]) Data() []*T {
+	// Use a no-op search function to retrieve all data
+	return t.search(nil, func(_ *T, _ *T) bool { return true })
 }

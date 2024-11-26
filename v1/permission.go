@@ -1,6 +1,7 @@
 package v1
 
-github.com/oarkflow/xsync""
+import (
+	"github.com/oarkflow/maps"
 )
 
 func NewTenant(id string) *Tenant {

@@ -7,9 +7,9 @@ import (
 	"slices"
 	"strings"
 
-github.com/oarkflow/xsync""
+	"github.com/oarkflow/maps"
 
-"github.com/oarkflow/permission/utils"
+	"github.com/oarkflow/permission/utils"
 )
 
 // Principal represents a user with a role
@@ -494,13 +494,13 @@ func (u *RoleManager) GetAllowedRoles(principalRoles []TenantPrincipal, namespac
 			allowedRoles = append(allowedRoles, r.RoleID)
 		}
 	}
-	
+
 	noTenantScopes := !slices.Contains(scopes, scope) && len(principalTenantRole) == 0
 	noNamespaceScopes := len(namespaceScopes) > 0 && !slices.Contains(namespaceScopes, scope)
 	if noTenantScopes || noNamespaceScopes {
 		return nil
 	}
-	
+
 	if namespace != "" && scope != "" && len(principalNamespaceScopeRole) > 0 {
 		for _, r := range principalNamespaceScopeRole {
 			if r.NamespaceID == namespace && r.ScopeID == scope {
@@ -508,7 +508,7 @@ func (u *RoleManager) GetAllowedRoles(principalRoles []TenantPrincipal, namespac
 			}
 		}
 	}
-	
+
 	for _, role := range allowedRoles {
 		if _, ok := tenant.roles.Get(role); !ok {
 			return nil
@@ -524,22 +524,22 @@ func (u *RoleManager) Authorize(principalID string, options ...func(*Option)) bo
 	if _, exists := u.GetPrincipal(principalID); !exists {
 		return false
 	}
-	
+
 	// Check if only tenant is provided
 	if svr.tenant != nil && svr.namespace == nil && svr.scope == nil && svr.resourceGroup == nil && svr.activity == nil {
 		return u.authorizeForTenant(utils.ToString(svr.tenant))
 	}
-	
+
 	// Check if only namespace is provided
 	if svr.namespace != nil && svr.tenant == nil && svr.scope == nil && svr.resourceGroup == nil && svr.activity == nil {
 		return u.authorizeForNamespace(principalID, utils.ToString(svr.namespace))
 	}
-	
+
 	// Check if only scope is provided
 	if svr.scope != nil && svr.tenant == nil && svr.namespace == nil && svr.resourceGroup == nil && svr.activity == nil {
 		return u.authorizeForScope(principalID, utils.ToString(svr.scope))
 	}
-	
+
 	// Check if only activity is provided
 	if svr.activity != nil && svr.tenant == nil && svr.namespace == nil && svr.scope == nil && svr.resourceGroup == nil {
 		return u.authorizeForActivity(principalID, utils.ToString(svr.activity))
@@ -548,22 +548,22 @@ func (u *RoleManager) Authorize(principalID string, options ...func(*Option)) bo
 	if svr.tenant != nil && svr.namespace != nil && svr.scope == nil && svr.resourceGroup == nil && svr.activity == nil {
 		return u.authorizeForTenantAndNamespace(principalID, utils.ToString(svr.tenant), utils.ToString(svr.namespace))
 	}
-	
+
 	// Check if tenant and scope
 	if svr.tenant != nil && svr.namespace == nil && svr.scope != nil && svr.resourceGroup == nil && svr.activity == nil {
 		return u.authorizeForTenantAndScope(principalID, utils.ToString(svr.tenant), utils.ToString(svr.scope))
 	}
-	
+
 	// Check if namespace and scope
 	if svr.tenant == nil && svr.namespace != nil && svr.scope != nil && svr.resourceGroup == nil && svr.activity == nil {
 		return u.authorizeForNamespaceAndScope(principalID, utils.ToString(svr.namespace), utils.ToString(svr.scope))
 	}
-	
+
 	// Check if tenant, namespace and scope
 	if svr.tenant != nil && svr.namespace != nil && svr.scope != nil && svr.resourceGroup == nil && svr.activity == nil {
 		return u.authorizeForTenantNamespaceAndScope(principalID, utils.ToString(svr.tenant), utils.ToString(svr.namespace), utils.ToString(svr.scope))
 	}
-	
+
 	// Handle complex combinations of options
 	return u.authorizeComplex(svr, principalID)
 }
@@ -656,7 +656,7 @@ func (u *RoleManager) authorizeForScope(principalID, scope string) bool {
 				}
 			}
 		}
-		
+
 	}
 	return false
 }
@@ -682,7 +682,7 @@ func (u *RoleManager) authorizeForActivity(principalID, activity string) bool {
 			return true
 		}
 	}
-	
+
 	return false
 }
 
@@ -692,7 +692,7 @@ func (u *RoleManager) authorizeComplex(svr *Option, principalID string) bool {
 	scope := utils.ToString(svr.scope)
 	resourceGroup := utils.ToString(svr.resourceGroup)
 	activity := utils.ToString(svr.activity)
-	
+
 	tenant, exists := u.GetTenant(utils.ToString(tenantID))
 	if !exists {
 		return false
@@ -706,7 +706,7 @@ func (u *RoleManager) authorizeComplex(svr *Option, principalID string) bool {
 			return false
 		}
 	}
-	
+
 	if scope != "" {
 		if _, ok := tenant.scopes.Get(scope); !ok {
 			return false
@@ -725,7 +725,7 @@ func (u *RoleManager) authorizeComplex(svr *Option, principalID string) bool {
 			return true
 		}
 	}
-	
+
 	return false
 }
 
