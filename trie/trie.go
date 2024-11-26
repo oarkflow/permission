@@ -99,18 +99,13 @@ func (t *Trie[T]) Search(filter *T) []*T {
 	return t.search(filter, t.match)
 }
 
-func (t *Trie[T]) search(filter *T, callback SearchFunc[T], stopAfterFirst ...bool) []*T {
-	var results []*T
-	t.searchIterative(filter, callback, &results, stopAfterFirst...)
-	return results
-}
-
 func (t *Trie[T]) SearchFunc(filter *T, callback SearchFunc[T]) []*T {
 	return t.search(filter, callback)
 }
 
-func (t *Trie[T]) searchIterative(filter *T, callback SearchFunc[T], results *[]*T, stopAfterFirst ...bool) {
-	stack := make([]*Node[T], 0, 64) // Increased initial capacity for optimization
+func (t *Trie[T]) search(filter *T, callback SearchFunc[T], stopAfterFirst ...bool) []*T {
+	var results []*T
+	stack := make([]*Node[T], 0, 64)
 	stack = append(stack, t.root)
 	stop := len(stopAfterFirst) > 0 && stopAfterFirst[0]
 
@@ -119,9 +114,9 @@ func (t *Trie[T]) searchIterative(filter *T, callback SearchFunc[T], results *[]
 		stack = stack[:len(stack)-1]
 
 		if node.isEnd && callback(filter, node.data) {
-			*results = append(*results, node.data)
+			results = append(results, node.data)
 			if stop {
-				return
+				return nil
 			}
 		}
 
@@ -130,6 +125,7 @@ func (t *Trie[T]) searchIterative(filter *T, callback SearchFunc[T], results *[]
 			return true
 		})
 	}
+	return results
 }
 
 func (t *Trie[T]) Data() []*T {

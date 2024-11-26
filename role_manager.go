@@ -37,6 +37,10 @@ func New() *RoleManager {
 	}
 }
 
+func (u *RoleManager) Source() *trie.Trie[Data] {
+	return u.trie
+}
+
 func (u *RoleManager) Data() *trie.Trie[Data] {
 	return u.trie
 }
