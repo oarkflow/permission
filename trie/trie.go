@@ -104,27 +104,29 @@ func (t *Trie[T]) SearchFunc(filter *T, callback SearchFunc[T]) []*T {
 }
 
 func (t *Trie[T]) search(filter *T, callback SearchFunc[T], stopAfterFirst ...bool) []*T {
-	var results []*T
-	stack := make([]*Node[T], 0, 64)
-	stack = append(stack, t.root)
+	results := make([]*T, 0, 10)
 	stop := len(stopAfterFirst) > 0 && stopAfterFirst[0]
-
-	for len(stack) > 0 {
-		node := stack[len(stack)-1]
-		stack = stack[:len(stack)-1]
-
+	var dfs func(node *Node[T]) bool
+	dfs = func(node *Node[T]) bool {
 		if node.isEnd && callback(filter, node.data) {
+			if len(results) == cap(results) {
+				newResults := make([]*T, len(results), 2*cap(results))
+				copy(newResults, results)
+				results = newResults
+			}
 			results = append(results, node.data)
 			if stop {
-				return nil
+				return true
 			}
 		}
-
-		node.child.ForEach(func(_ any, child *Node[T]) bool {
-			stack = append(stack, child)
-			return true
-		})
+		for _, child := range node.child.Values() {
+			if dfs(child) {
+				return true
+			}
+		}
+		return false
 	}
+	dfs(t.root)
 	return results
 }
 
