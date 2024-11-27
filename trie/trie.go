@@ -107,8 +107,10 @@ func (t *Trie[T]) search(filter *T, callback SearchFunc[T], stopAfterFirst ...bo
 	results := make([]*T, 0, 10)
 	stop := len(stopAfterFirst) > 0 && stopAfterFirst[0]
 	var dfs func(node *Node[T]) bool
+	resultCount := 0
 	dfs = func(node *Node[T]) bool {
 		if node.isEnd && callback(filter, node.data) {
+			resultCount++
 			if len(results) == cap(results) {
 				newResults := make([]*T, len(results), 2*cap(results))
 				copy(newResults, results)
@@ -127,7 +129,7 @@ func (t *Trie[T]) search(filter *T, callback SearchFunc[T], stopAfterFirst ...bo
 		return false
 	}
 	dfs(t.root)
-	return results
+	return results[:resultCount]
 }
 
 func (t *Trie[T]) Data() []*T {
