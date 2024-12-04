@@ -155,10 +155,12 @@ func (a *Authorizer) AddChildRole(parent string, child ...string) {
 	a.Roles.AddChildRole(parent, child...)
 }
 
-func (a *Authorizer) AddTenant(tenant *Tenant) {
+func (a *Authorizer) AddTenant(tenants ...*Tenant) {
 	a.m.Lock()
 	defer a.m.Unlock()
-	a.tenants[tenant.ID] = tenant
+	for _, tenant := range tenants {
+		a.tenants[tenant.ID] = tenant
+	}
 }
 
 func (a *Authorizer) AddUserRole(userRole ...UserRole) {
@@ -280,50 +282,26 @@ func isScopeValid(tenant *Tenant, scopeName string) bool {
 func main() {
 	authorizer := NewAuthorizer()
 
-	adminRole := NewRole("Admin")
-	adminPermissions := []Permission{
-		{Resource: "dashboard", Method: "read", Category: "page"},
-		{Resource: "users", Method: "write", Category: "backend"},
-	}
-	adminRole.AddPermission(adminPermissions...)
-
-	editorRole := NewRole("Editor")
-	editorPermissions := []Permission{
-		{Resource: "posts", Method: "edit", Category: "backend"},
-	}
-	editorRole.AddPermission(editorPermissions...)
-
-	authorizer.AddRole(adminRole)
-	authorizer.AddRole(editorRole)
-	authorizer.AddChildRole("Admin", "Editor")
-
-	childTenant := NewTenant("Child Tenant", "child")
-	childTenant.AddScopes([]Scope{{Name: "scope2", Namespace: "service2"}}...)
-
-	rootTenant := NewTenant("Root Tenant", "root")
-	rootTenant.AddScopes([]Scope{{Name: "scope1", Namespace: "service1"}}...)
+	rootTenant := NewTenant("TenantA", "TenantA")
+	rootTenant.AddScopes(Scope{Name: "Entity29", Namespace: "NamespaceA"})
+	childTenant := NewTenant("TenantB", "TenantB")
+	childTenant.AddScopes(Scope{Name: "Entity30", Namespace: "NamespaceA"})
 	rootTenant.AddChildTenant(childTenant)
 
-	authorizer.AddTenant(childTenant)
-	authorizer.AddTenant(rootTenant)
+	authorizer.AddTenant(rootTenant, childTenant)
+	coder, _, _, _ := myRoles(authorizer)
 
-	userRoles := []UserRole{
-		{UserID: "user1", TenantID: "root", RoleName: "Admin"},
-		{UserID: "user1", TenantID: "root", ScopeName: "scope1", RoleName: "Editor"},
-	}
-	authorizer.AddUserRole(userRoles...)
-	request := Request{
-		UserID:    "user1",
-		TenantID:  "root",
-		ScopeName: "scope2",
-		Resource:  "posts",
-		Method:    "edit",
-	}
-	if authorizer.Authorize(request) {
-		fmt.Println("Access granted")
-	} else {
-		fmt.Println("Access denied")
-	}
+	authorizer.AddUserRole(UserRole{
+		UserID:   "principalA",
+		TenantID: rootTenant.ID,
+		RoleName: coder.Name,
+	})
+	r1 := Request{UserID: "principalA", TenantID: rootTenant.ID, ScopeName: "Entity29", Resource: "/coding/1/2/start-coding", Method: "POST"}
+	r2 := Request{UserID: "principalA", TenantID: rootTenant.ID, Resource: "/coding/1/2/start-coding", Method: "POST"}
+	r3 := Request{UserID: "principalA", TenantID: childTenant.ID, Resource: "/coding/1/2/start-coding", Method: "POST"}
+	fmt.Println(authorizer.Authorize(r1))
+	fmt.Println(authorizer.Authorize(r2))
+	fmt.Println(authorizer.Authorize(r3))
 }
 
 func myRoles(authorizer *Authorizer) (coder *Role, qa *Role, suspendManager *Role, admin *Role) {
