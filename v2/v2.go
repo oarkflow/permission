@@ -35,6 +35,14 @@ func (r *Role) AddPermission(permissions ...Permission) {
 	}
 }
 
+func (r *Role) RemovePermission(permissions ...Permission) {
+	r.m.Lock()
+	defer r.m.Unlock()
+	for _, permission := range permissions {
+		delete(r.Permissions, permission.String())
+	}
+}
+
 type Scope struct {
 	Name      string
 	Namespace string
@@ -107,18 +115,49 @@ func (dag *RoleDAG) AddRole(roles ...*Role) {
 	}
 }
 
-func (dag *RoleDAG) AddChildRole(parent string, child ...string) {
+func (dag *RoleDAG) AddChildRole(parent string, child ...string) error {
 	dag.mu.Lock()
 	defer dag.mu.Unlock()
+	if err := dag.checkCircularDependency(parent, child...); err != nil {
+		return err
+	}
 	dag.edges[parent] = append(dag.edges[parent], child...)
+	return nil
+}
+
+func (dag *RoleDAG) checkCircularDependency(parent string, children ...string) error {
+	visited := map[string]bool{parent: true}
+	var dfs func(string) bool
+	dfs = func(role string) bool {
+		if visited[role] {
+			return true
+		}
+		visited[role] = true
+		for _, child := range dag.edges[role] {
+			if dfs(child) {
+				return true
+			}
+		}
+		return false
+	}
+	for _, child := range children {
+		if dfs(child) {
+			return fmt.Errorf("circular role dependency detected: %s -> %s", parent, child)
+		}
+	}
+	return nil
 }
 
 func (dag *RoleDAG) ResolvePermissions(roleName string) map[string]struct{} {
-	dag.mu.Lock()
-	defer dag.mu.Unlock()
+	dag.mu.RLock()
 	if permissions, found := dag.resolved[roleName]; found {
+		dag.mu.RUnlock()
 		return permissions
 	}
+	dag.mu.RUnlock()
+
+	dag.mu.Lock()
+	defer dag.mu.Unlock()
 	visited := make(map[string]bool)
 	queue := []string{roleName}
 	result := make(map[string]struct{})
@@ -143,7 +182,7 @@ func (dag *RoleDAG) ResolvePermissions(roleName string) map[string]struct{} {
 }
 
 type Authorizer struct {
-	Roles     *RoleDAG
+	roles     *RoleDAG
 	userRoles []UserRole
 	tenants   map[string]*Tenant
 	m         sync.RWMutex
@@ -151,17 +190,17 @@ type Authorizer struct {
 
 func NewAuthorizer() *Authorizer {
 	return &Authorizer{
-		Roles:   NewRoleDAG(),
+		roles:   NewRoleDAG(),
 		tenants: make(map[string]*Tenant),
 	}
 }
 
 func (a *Authorizer) AddRole(role ...*Role) {
-	a.Roles.AddRole(role...)
+	a.roles.AddRole(role...)
 }
 
-func (a *Authorizer) AddChildRole(parent string, child ...string) {
-	a.Roles.AddChildRole(parent, child...)
+func (a *Authorizer) AddChildRole(parent string, child ...string) error {
+	return a.roles.AddChildRole(parent, child...)
 }
 
 func (a *Authorizer) AddTenant(tenants ...*Tenant) {
@@ -189,12 +228,12 @@ func (a *Authorizer) resolveUserRoles(userID, tenantID, scopeName string) (map[s
 		for _, userRole := range a.userRoles {
 			if userRole.UserID == userID && userRole.TenantID == current.ID {
 				if userRole.Scope == scopeName {
-					permissions := a.Roles.ResolvePermissions(userRole.Role)
+					permissions := a.roles.ResolvePermissions(userRole.Role)
 					for perm := range permissions {
 						scopedPermissions[perm] = struct{}{}
 					}
 				} else if userRole.Scope == "" {
-					permissions := a.Roles.ResolvePermissions(userRole.Role)
+					permissions := a.roles.ResolvePermissions(userRole.Role)
 					for perm := range permissions {
 						globalPermissions[perm] = struct{}{}
 					}
@@ -212,12 +251,21 @@ func (a *Authorizer) resolveUserRoles(userID, tenantID, scopeName string) (map[s
 }
 
 func (a *Authorizer) findParentTenant(child *Tenant) *Tenant {
-	for _, tenant := range a.tenants {
-		if _, ok := tenant.ChildTenants[child.ID]; ok {
-			return tenant
+	visited := make(map[string]bool)
+	var dfs func(*Tenant) *Tenant
+	dfs = func(tenant *Tenant) *Tenant {
+		if visited[tenant.ID] {
+			return nil
 		}
+		visited[tenant.ID] = true
+		for _, parent := range a.tenants {
+			if _, ok := parent.ChildTenants[tenant.ID]; ok {
+				return parent
+			}
+		}
+		return nil
 	}
-	return nil
+	return dfs(child)
 }
 
 func (a *Authorizer) Authorize(request Request) bool {
@@ -276,6 +324,8 @@ func matchPermission(permission string, request Request) bool {
 }
 
 func isScopeValid(tenant *Tenant, scopeName string) bool {
+	tenant.m.RLock()
+	defer tenant.m.RUnlock()
 	if _, ok := tenant.Scopes[scopeName]; ok {
 		return true
 	}

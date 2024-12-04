@@ -48,7 +48,10 @@ func myRoles(authorizer *v2.Authorizer) (coder *v2.Role, qa *v2.Role, suspendMan
 	admin.AddPermission(adminManagerPermissions()...)
 	authorizer.AddRole(admin)
 
-	authorizer.AddChildRole(admin.Name, coder.Name, qa.Name, suspendManager.Name)
+	err := authorizer.AddChildRole(admin.Name, coder.Name, qa.Name, suspendManager.Name)
+	if err != nil {
+		panic(err)
+	}
 	return
 }
 
