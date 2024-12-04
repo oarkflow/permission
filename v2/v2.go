@@ -223,14 +223,29 @@ func (a *Authorizer) AddUserRole(userRole ...UserRole) {
 	a.userRoles = append(a.userRoles, userRole...)
 }
 
+var (
+	scopedPermissionsPool = utils.New(func() map[string]struct{} { return make(map[string]struct{}) })
+	globalPermissionsPool = utils.New(func() map[string]struct{} { return make(map[string]struct{}) })
+	checkedTenantsPool    = utils.New(func() map[string]bool { return make(map[string]bool) })
+)
+
 func (a *Authorizer) resolveUserRoles(userID, tenantID, scopeName string) (map[string]struct{}, error) {
+	scopedPermissions := scopedPermissionsPool.Get()
+	globalPermissions := globalPermissionsPool.Get()
+	checkedTenants := checkedTenantsPool.Get()
+	clear(scopedPermissions)
+	clear(globalPermissions)
+	clear(checkedTenants)
+	defer func() {
+		scopedPermissionsPool.Put(scopedPermissions)
+		globalPermissionsPool.Put(globalPermissions)
+		checkedTenantsPool.Put(checkedTenants)
+	}()
+
 	tenant, exists := a.tenants[tenantID]
 	if !exists {
 		return nil, fmt.Errorf("invalid tenant: %v", tenantID)
 	}
-	scopedPermissions := make(map[string]struct{})
-	globalPermissions := make(map[string]struct{})
-	checkedTenants := make(map[string]bool)
 	for current := tenant; current != nil; current = a.findParentTenant(current) {
 		if checkedTenants[current.ID] {
 			continue
