@@ -2,72 +2,10 @@ package main
 
 import (
 	"fmt"
+	"sync"
+
+	"github.com/oarkflow/permission/utils"
 )
-
-func main() {
-
-	adminRole := Role{
-		Name: "Admin",
-		Permissions: []Permission{
-			{Resource: "dashboard", Method: "read", Category: "page"},
-			{Resource: "users", Method: "write", Category: "backend"},
-		},
-		ChildRoles: []string{"Editor"},
-	}
-	editorRole := Role{
-		Name: "Editor",
-		Permissions: []Permission{
-			{Resource: "posts", Method: "edit", Category: "backend"},
-		},
-		ChildRoles: []string{},
-	}
-	roleMap := map[string]Role{
-		"Admin":  adminRole,
-		"Editor": editorRole,
-	}
-
-	childTenant := &Tenant{
-		ID:           "child",
-		Name:         "Child Tenant",
-		DefaultRole:  "Editor",
-		ChildTenants: []*Tenant{},
-		Services: []Scope{
-			{Name: "scope2", Namespace: "service2"},
-		},
-	}
-	rootTenant := &Tenant{
-		ID:           "root",
-		Name:         "Root Tenant",
-		DefaultRole:  "Admin",
-		ChildTenants: []*Tenant{childTenant},
-		Services: []Scope{
-			{Name: "scope1", Namespace: "service1"},
-		},
-	}
-	tenants := map[string]*Tenant{
-		"root":  rootTenant,
-		"child": childTenant,
-	}
-
-	userRoles := []UserRole{
-		{UserID: "user1", TenantID: "root", RoleName: "Admin"},
-	}
-
-	request1 := Request{
-		UserID:    "user1",
-		TenantID:  "root",
-		ScopeName: "scope2",
-		Category:  "backend",
-		Resource:  "users",
-		Method:    "write",
-	}
-
-	if authorize(request1, userRoles, tenants, roleMap) {
-		fmt.Println("Request 1: Access granted")
-	} else {
-		fmt.Println("Request 1: Access denied")
-	}
-}
 
 type Permission struct {
 	Resource string
@@ -78,7 +16,17 @@ type Permission struct {
 type Role struct {
 	Name        string
 	Permissions []Permission
-	ChildRoles  []string
+	m           sync.RWMutex
+}
+
+func NewRole(name string) *Role {
+	return &Role{Name: name}
+}
+
+func (r *Role) AddPermission(permission ...Permission) {
+	r.m.Lock()
+	defer r.m.Unlock()
+	r.Permissions = append(r.Permissions, permission...)
 }
 
 type Scope struct {
@@ -89,9 +37,25 @@ type Scope struct {
 type Tenant struct {
 	ID           string
 	Name         string
-	DefaultRole  string
 	ChildTenants []*Tenant
-	Services     []Scope
+	Scopes       []Scope
+	m            sync.RWMutex
+}
+
+func NewTenant(name, id string) *Tenant {
+	return &Tenant{ID: id, Name: name}
+}
+
+func (t *Tenant) AddChildTenant(tenant ...*Tenant) {
+	t.m.Lock()
+	defer t.m.Unlock()
+	t.ChildTenants = append(t.ChildTenants, tenant...)
+}
+
+func (t *Tenant) AddScopes(scope ...Scope) {
+	t.m.Lock()
+	defer t.m.Unlock()
+	t.Scopes = append(t.Scopes, scope...)
 }
 
 type UserRole struct {
@@ -110,18 +74,197 @@ type Request struct {
 	Method    string
 }
 
-func isTenantValid(tenantID string, tenants map[string]*Tenant) (*Tenant, bool) {
-	tenant, exists := tenants[tenantID]
-	return tenant, exists
+type RoleDAG struct {
+	mu       sync.RWMutex
+	roles    map[string]*Role
+	edges    map[string][]string
+	resolved map[string][]Permission
 }
 
-func isRoleValid(roleName string, roleMap map[string]Role) (Role, bool) {
-	role, exists := roleMap[roleName]
-	return role, exists
+func NewRoleDAG() *RoleDAG {
+	return &RoleDAG{
+		roles:    make(map[string]*Role),
+		edges:    make(map[string][]string),
+		resolved: make(map[string][]Permission),
+	}
+}
+
+func (dag *RoleDAG) AddRole(roles ...*Role) {
+	dag.mu.Lock()
+	defer dag.mu.Unlock()
+	for _, role := range roles {
+		dag.roles[role.Name] = role
+	}
+}
+
+func (dag *RoleDAG) AddChildRole(parent string, child ...string) {
+	dag.mu.Lock()
+	defer dag.mu.Unlock()
+	dag.edges[parent] = append(dag.edges[parent], child...)
+}
+
+func (dag *RoleDAG) ResolvePermissions(roleName string) []Permission {
+	dag.mu.RLock()
+	if permissions, found := dag.resolved[roleName]; found {
+		dag.mu.RUnlock()
+		return permissions
+	}
+	dag.mu.RUnlock()
+	dag.mu.Lock()
+	defer dag.mu.Unlock()
+	visited := make(map[string]bool)
+	queue := []string{roleName}
+	var result []Permission
+	for len(queue) > 0 {
+		current := queue[0]
+		queue = queue[1:]
+		if visited[current] {
+			continue
+		}
+		visited[current] = true
+		role, exists := dag.roles[current]
+		if !exists {
+			continue
+		}
+		result = append(result, role.Permissions...)
+		queue = append(queue, dag.edges[current]...)
+	}
+	dag.resolved[roleName] = result
+	return result
+}
+
+type Authorizer struct {
+	Roles     *RoleDAG
+	userRoles []UserRole
+	tenants   map[string]*Tenant
+	m         sync.RWMutex
+}
+
+func NewAuthorizer() *Authorizer {
+	return &Authorizer{
+		Roles:   NewRoleDAG(),
+		tenants: make(map[string]*Tenant),
+	}
+}
+
+func (a *Authorizer) AddRole(role ...*Role) {
+	a.Roles.AddRole(role...)
+}
+
+func (a *Authorizer) AddChildRole(parent string, child ...string) {
+	a.Roles.AddChildRole(parent, child...)
+}
+
+func (a *Authorizer) AddTenant(tenant *Tenant) {
+	a.m.Lock()
+	defer a.m.Unlock()
+	a.tenants[tenant.ID] = tenant
+}
+
+func (a *Authorizer) AddUserRole(userRole ...UserRole) {
+	a.m.Lock()
+	defer a.m.Unlock()
+	a.userRoles = append(a.userRoles, userRole...)
+}
+
+func (a *Authorizer) resolveUserRoles(userID, tenantID, scopeName string) ([]Permission, error) {
+	tenant, exists := a.tenants[tenantID]
+	if !exists {
+		return nil, fmt.Errorf("invalid tenant: %v", tenantID)
+	}
+	var scopedPermissions []Permission
+	var globalPermissions []Permission
+	for current := tenant; current != nil; current = a.findParentTenant(current) {
+		for _, userRole := range a.userRoles {
+			if userRole.UserID == userID && userRole.TenantID == current.ID {
+				if userRole.ScopeName == scopeName {
+					permissions := a.Roles.ResolvePermissions(userRole.RoleName)
+					scopedPermissions = append(scopedPermissions, permissions...)
+				} else if userRole.ScopeName == "" {
+					permissions := a.Roles.ResolvePermissions(userRole.RoleName)
+					globalPermissions = append(globalPermissions, permissions...)
+				}
+			}
+		}
+	}
+	if len(scopedPermissions) > 0 {
+		return scopedPermissions, nil
+	}
+	if len(globalPermissions) > 0 {
+		return globalPermissions, nil
+	}
+	return nil, fmt.Errorf("no roles or permissions found for user: %s in tenant hierarchy of: %s", userID, tenantID)
+}
+
+func (a *Authorizer) findParentTenant(child *Tenant) *Tenant {
+	for _, tenant := range a.tenants {
+		for _, ct := range tenant.ChildTenants {
+			if ct.ID == child.ID {
+				return tenant
+			}
+		}
+	}
+	return nil
+}
+
+func (a *Authorizer) Authorize(request Request) bool {
+	var targetTenants []*Tenant
+	if request.TenantID == "" {
+		targetTenants = a.findUserTenants(request.UserID)
+		if len(targetTenants) == 0 {
+			return false
+		}
+	} else {
+		tenant, exists := a.tenants[request.TenantID]
+		if !exists {
+			return false
+		}
+		targetTenants = []*Tenant{tenant}
+	}
+	for _, tenant := range targetTenants {
+		if request.ScopeName != "" && !isScopeValid(tenant, request.ScopeName) {
+			continue
+		}
+		permissions, err := a.resolveUserRoles(request.UserID, tenant.ID, request.ScopeName)
+		if err != nil {
+			continue
+		}
+		for _, permission := range permissions {
+			if matchPermission(permission, request) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func (a *Authorizer) findUserTenants(userID string) []*Tenant {
+	tenantSet := make(map[string]*Tenant)
+	for _, userRole := range a.userRoles {
+		if userRole.UserID == userID {
+			if tenant, exists := a.tenants[userRole.TenantID]; exists {
+				tenantSet[userRole.TenantID] = tenant
+			}
+		}
+	}
+	var tenantList []*Tenant
+	for _, tenant := range tenantSet {
+		tenantList = append(tenantList, tenant)
+	}
+	return tenantList
+}
+
+func matchPermission(permission Permission, request Request) bool {
+	if request.Resource == "" && request.Method == "" {
+		return false
+	}
+	permissionToCheck := permission.Resource + " " + permission.Method
+	requestToCheck := request.Resource + " " + request.Method
+	return utils.MatchResource(requestToCheck, permissionToCheck)
 }
 
 func isScopeValid(tenant *Tenant, scopeName string) bool {
-	for _, scope := range tenant.Services {
+	for _, scope := range tenant.Scopes {
 		if scope.Name == scopeName {
 			return true
 		}
@@ -134,91 +277,105 @@ func isScopeValid(tenant *Tenant, scopeName string) bool {
 	return false
 }
 
-func expandRoles(roleName string, roleMap map[string]Role, resolvedRoles map[string]bool) {
-	if resolvedRoles[roleName] {
-		return
+func main() {
+	authorizer := NewAuthorizer()
+
+	adminRole := NewRole("Admin")
+	adminPermissions := []Permission{
+		{Resource: "dashboard", Method: "read", Category: "page"},
+		{Resource: "users", Method: "write", Category: "backend"},
 	}
-	resolvedRoles[roleName] = true
-	role, exists := isRoleValid(roleName, roleMap)
-	if !exists {
-		return
+	adminRole.AddPermission(adminPermissions...)
+
+	editorRole := NewRole("Editor")
+	editorPermissions := []Permission{
+		{Resource: "posts", Method: "edit", Category: "backend"},
 	}
-	for _, childRole := range role.ChildRoles {
-		expandRoles(childRole, roleMap, resolvedRoles)
+	editorRole.AddPermission(editorPermissions...)
+
+	authorizer.AddRole(adminRole)
+	authorizer.AddRole(editorRole)
+	authorizer.AddChildRole("Admin", "Editor")
+
+	childTenant := NewTenant("Child Tenant", "child")
+	childTenant.AddScopes([]Scope{{Name: "scope2", Namespace: "service2"}}...)
+
+	rootTenant := NewTenant("Root Tenant", "root")
+	rootTenant.AddScopes([]Scope{{Name: "scope1", Namespace: "service1"}}...)
+	rootTenant.AddChildTenant(childTenant)
+
+	authorizer.AddTenant(childTenant)
+	authorizer.AddTenant(rootTenant)
+
+	userRoles := []UserRole{
+		{UserID: "user1", TenantID: "root", RoleName: "Admin"},
+		{UserID: "user1", TenantID: "root", ScopeName: "scope1", RoleName: "Editor"},
+	}
+	authorizer.AddUserRole(userRoles...)
+	request := Request{
+		UserID:    "user1",
+		TenantID:  "root",
+		ScopeName: "scope2",
+		Resource:  "posts",
+		Method:    "edit",
+	}
+	if authorizer.Authorize(request) {
+		fmt.Println("Access granted")
+	} else {
+		fmt.Println("Access denied")
 	}
 }
 
-func resolveUserRoles(userID, tenantID, scopeName string, userRoles []UserRole, tenants map[string]*Tenant, roleMap map[string]Role) ([]Role, error) {
-	resolvedRoles := make(map[string]bool)
-	tenant, tenantExists := isTenantValid(tenantID, tenants)
-	if !tenantExists {
-		return nil, fmt.Errorf("invalid tenant: %s", tenantID)
-	}
-	roleFound := false
-	for _, userRole := range userRoles {
-		if userRole.UserID == userID && userRole.TenantID == tenantID && userRole.ScopeName == scopeName {
-			if role, valid := isRoleValid(userRole.RoleName, roleMap); valid {
-				expandRoles(role.Name, roleMap, resolvedRoles)
-				roleFound = true
-			} else {
-				return nil, fmt.Errorf("invalid role: %s", userRole.RoleName)
-			}
-		}
-	}
-	if !roleFound {
-		if defaultRole, valid := isRoleValid(tenant.DefaultRole, roleMap); valid {
-			expandRoles(defaultRole.Name, roleMap, resolvedRoles)
-		} else {
-			return nil, fmt.Errorf("invalid default role for tenant %s", tenantID)
-		}
-	}
-	var roles []Role
-	for roleName := range resolvedRoles {
-		if role, exists := isRoleValid(roleName, roleMap); exists {
-			roles = append(roles, role)
-		}
-	}
-	return roles, nil
+func myRoles(authorizer *Authorizer) (coder *Role, qa *Role, suspendManager *Role, admin *Role) {
+	coder = NewRole("coder")
+	coder.AddPermission(coderPermissions()...)
+	authorizer.AddRole(coder)
+
+	qa = NewRole("qa")
+	qa.AddPermission(qaPermissions()...)
+	authorizer.AddRole(qa)
+
+	suspendManager = NewRole("suspend-manager")
+	suspendManager.AddPermission(suspendManagerPermissions()...)
+	authorizer.AddRole(suspendManager)
+
+	admin = NewRole("admin")
+	admin.AddPermission(adminManagerPermissions()...)
+	authorizer.AddRole(admin)
+
+	authorizer.AddChildRole(admin.Name, coder.Name, qa.Name, suspendManager.Name)
+	return
 }
 
-func isUserValid(userID string, userRoles []UserRole) bool {
-	for _, userRole := range userRoles {
-		if userRole.UserID == userID {
-			return true
-		}
+func coderPermissions() []Permission {
+	return []Permission{
+		{Resource: "/coding/:wid/:eid/start-coding", Method: "POST", Category: "backend"},
+		{Resource: "/coding/:wid/open", Method: "GET", Category: "backend"},
+		{Resource: "/coding/:wid/in-progress", Method: "GET", Category: "backend"},
+		{Resource: "/coding/:wid/:eid/review", Method: "POST", Category: "backend"},
 	}
-	return false
 }
 
-func hasPermission(roles []Role, category, resource, method string) bool {
-	for _, role := range roles {
-		for _, permission := range role.Permissions {
-			if permission.Category == category && permission.Resource == resource && permission.Method == method {
-				return true
-			}
-		}
+func qaPermissions() []Permission {
+	return []Permission{
+		{Resource: "/coding/:wid/:eid/start-qa", Method: "POST", Category: "backend"},
+		{Resource: "/coding/:wid/qa", Method: "GET", Category: "backend"},
+		{Resource: "/coding/:wid/qa-in-progress", Method: "GET", Category: "backend"},
+		{Resource: "/coding/:wid/:eid/qa-review", Method: "POST", Category: "backend"},
 	}
-	return false
 }
 
-func authorize(request Request, userRoles []UserRole, tenants map[string]*Tenant, roleMap map[string]Role) bool {
-	if !isUserValid(request.UserID, userRoles) {
-		fmt.Printf("Invalid user: %s\n", request.UserID)
-		return false
+func suspendManagerPermissions() []Permission {
+	return []Permission{
+		{Resource: "/coding/:wid/suspended", Method: "GET", Category: "backend"},
+		{Resource: "/coding/:wid/:eid/release-suspend", Method: "POST", Category: "backend"},
+		{Resource: "/coding/:wid/:eid/request-abandon", Method: "POST", Category: "backend"},
 	}
-	tenant, validTenant := isTenantValid(request.TenantID, tenants)
-	if !validTenant {
-		fmt.Println("Invalid tenant")
-		return false
+}
+
+func adminManagerPermissions() []Permission {
+	return []Permission{
+		{Resource: "/admin/principal/add", Method: "POST", Category: "backend"},
+		{Resource: "/admin/principal/edit", Method: "PUT", Category: "backend"},
 	}
-	if !isScopeValid(tenant, request.ScopeName) {
-		fmt.Println("Invalid scope")
-		return false
-	}
-	roles, err := resolveUserRoles(request.UserID, request.TenantID, request.ScopeName, userRoles, tenants, roleMap)
-	if err != nil {
-		fmt.Println(err)
-		return false
-	}
-	return hasPermission(roles, request.Category, request.Resource, request.Method)
 }
