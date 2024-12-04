@@ -77,16 +77,16 @@ func (t *Tenant) AddScopes(scopes ...Scope) {
 }
 
 type UserRole struct {
-	UserID            string
-	TenantID          string
+	User              string
+	Tenant            string
 	Scope             string
 	Role              string
 	ManageChildTenant bool
 }
 
 type Request struct {
-	UserID   string
-	TenantID string
+	User     string
+	Tenant   string
 	Scope    string
 	Category string
 	Resource string
@@ -252,7 +252,7 @@ func (a *Authorizer) resolveUserRoles(userID, tenantID, scopeName string) (map[s
 		}
 		checkedTenants[current.ID] = true
 		for _, userRole := range a.userRoles {
-			if userRole.UserID == userID && userRole.TenantID == current.ID {
+			if userRole.User == userID && userRole.Tenant == current.ID {
 				if current.ID != tenant.ID && !userRole.ManageChildTenant {
 					continue
 				}
@@ -296,13 +296,13 @@ func (a *Authorizer) findParentTenant(child *Tenant) *Tenant {
 
 func (a *Authorizer) Authorize(request Request) bool {
 	var targetTenants []*Tenant
-	if request.TenantID == "" {
-		targetTenants = a.findUserTenants(request.UserID)
+	if request.Tenant == "" {
+		targetTenants = a.findUserTenants(request.User)
 		if len(targetTenants) == 0 {
 			return false
 		}
 	} else {
-		tenant, exists := a.tenants[request.TenantID]
+		tenant, exists := a.tenants[request.Tenant]
 		if !exists {
 			return false
 		}
@@ -312,7 +312,7 @@ func (a *Authorizer) Authorize(request Request) bool {
 		if request.Scope != "" && !isScopeValid(tenant, request.Scope) {
 			continue
 		}
-		permissions, err := a.resolveUserRoles(request.UserID, tenant.ID, request.Scope)
+		permissions, err := a.resolveUserRoles(request.User, tenant.ID, request.Scope)
 		if err != nil {
 			continue
 		}
@@ -328,9 +328,9 @@ func (a *Authorizer) Authorize(request Request) bool {
 func (a *Authorizer) findUserTenants(userID string) []*Tenant {
 	tenantSet := make(map[string]*Tenant)
 	for _, userRole := range a.userRoles {
-		if userRole.UserID == userID {
-			if tenant, exists := a.tenants[userRole.TenantID]; exists {
-				tenantSet[userRole.TenantID] = tenant
+		if userRole.User == userID {
+			if tenant, exists := a.tenants[userRole.Tenant]; exists {
+				tenantSet[userRole.Tenant] = tenant
 			}
 		}
 	}

@@ -22,11 +22,11 @@ func BenchmarkV2(b *testing.B) {
 	coder, _, _, _ := v2myRoles(authorizer)
 
 	authorizer.AddUserRole(v2.UserRole{
-		UserID:   "principalA",
-		TenantID: rootTenant.ID,
-		Role:     coder.Name,
+		User:   "principalA",
+		Tenant: rootTenant.ID,
+		Role:   coder.Name,
 	})
-	r1 := v2.Request{UserID: "principalA", TenantID: rootTenant.ID, Scope: "Entity29", Resource: "/coding/1/2/start-coding", Method: "POST"}
+	r1 := v2.Request{User: "principalA", Tenant: rootTenant.ID, Scope: "Entity29", Resource: "/coding/1/2/start-coding", Method: "POST"}
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		authorizer.Authorize(r1)

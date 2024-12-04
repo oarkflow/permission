@@ -19,13 +19,13 @@ func main() {
 	coder, _, _, _ := myRoles(authorizer)
 
 	authorizer.AddUserRole(v2.UserRole{
-		UserID:   "principalA",
-		TenantID: rootTenant.ID,
-		Role:     coder.Name,
+		User:   "principalA",
+		Tenant: rootTenant.ID,
+		Role:   coder.Name,
 	})
-	r1 := v2.Request{UserID: "principalA", TenantID: rootTenant.ID, Scope: "Entity29", Resource: "/coding/1/2/start-coding", Method: "POST"}
-	r2 := v2.Request{UserID: "principalA", TenantID: rootTenant.ID, Resource: "/coding/1/2/start-coding", Method: "POST"}
-	r3 := v2.Request{UserID: "principalA", TenantID: childTenant.ID, Resource: "/coding/1/2/start-coding", Method: "POST"}
+	r1 := v2.Request{User: "principalA", Tenant: rootTenant.ID, Scope: "Entity29", Resource: "/coding/1/2/start-coding", Method: "POST"}
+	r2 := v2.Request{User: "principalA", Tenant: rootTenant.ID, Resource: "/coding/1/2/start-coding", Method: "POST"}
+	r3 := v2.Request{User: "principalA", Tenant: childTenant.ID, Resource: "/coding/1/2/start-coding", Method: "POST"}
 	fmt.Println(authorizer.Authorize(r1))
 	fmt.Println(authorizer.Authorize(r2))
 	fmt.Println(authorizer.Authorize(r3))
