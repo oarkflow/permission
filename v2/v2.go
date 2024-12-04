@@ -114,14 +114,11 @@ func (dag *RoleDAG) AddChildRole(parent string, child ...string) {
 }
 
 func (dag *RoleDAG) ResolvePermissions(roleName string) map[string]struct{} {
-	dag.mu.RLock()
-	if permissions, found := dag.resolved[roleName]; found {
-		dag.mu.RUnlock()
-		return permissions
-	}
-	dag.mu.RUnlock()
 	dag.mu.Lock()
 	defer dag.mu.Unlock()
+	if permissions, found := dag.resolved[roleName]; found {
+		return permissions
+	}
 	visited := make(map[string]bool)
 	queue := []string{roleName}
 	result := make(map[string]struct{})
