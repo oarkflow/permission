@@ -77,10 +77,11 @@ func (t *Tenant) AddScopes(scopes ...Scope) {
 }
 
 type UserRole struct {
-	UserID   string
-	TenantID string
-	Scope    string
-	Role     string
+	UserID            string
+	TenantID          string
+	Scope             string
+	Role              string
+	ManageChildTenant bool
 }
 
 type Request struct {
@@ -182,16 +183,18 @@ func (dag *RoleDAG) ResolvePermissions(roleName string) map[string]struct{} {
 }
 
 type Authorizer struct {
-	roles     *RoleDAG
-	userRoles []UserRole
-	tenants   map[string]*Tenant
-	m         sync.RWMutex
+	roles       *RoleDAG
+	userRoles   []UserRole
+	tenants     map[string]*Tenant
+	parentCache map[string]*Tenant
+	m           sync.RWMutex
 }
 
 func NewAuthorizer() *Authorizer {
 	return &Authorizer{
-		roles:   NewRoleDAG(),
-		tenants: make(map[string]*Tenant),
+		roles:       NewRoleDAG(),
+		tenants:     make(map[string]*Tenant),
+		parentCache: make(map[string]*Tenant),
 	}
 }
 
@@ -208,6 +211,9 @@ func (a *Authorizer) AddTenant(tenants ...*Tenant) {
 	defer a.m.Unlock()
 	for _, tenant := range tenants {
 		a.tenants[tenant.ID] = tenant
+		for _, child := range tenant.ChildTenants {
+			a.parentCache[child.ID] = tenant
+		}
 	}
 }
 
@@ -224,9 +230,17 @@ func (a *Authorizer) resolveUserRoles(userID, tenantID, scopeName string) (map[s
 	}
 	scopedPermissions := make(map[string]struct{})
 	globalPermissions := make(map[string]struct{})
+	checkedTenants := make(map[string]bool)
 	for current := tenant; current != nil; current = a.findParentTenant(current) {
+		if checkedTenants[current.ID] {
+			continue
+		}
+		checkedTenants[current.ID] = true
 		for _, userRole := range a.userRoles {
 			if userRole.UserID == userID && userRole.TenantID == current.ID {
+				if current.ID != tenant.ID && !userRole.ManageChildTenant {
+					continue
+				}
 				if userRole.Scope == scopeName {
 					permissions := a.roles.ResolvePermissions(userRole.Role)
 					for perm := range permissions {
@@ -250,22 +264,19 @@ func (a *Authorizer) resolveUserRoles(userID, tenantID, scopeName string) (map[s
 	return nil, fmt.Errorf("no roles or permissions found for user: %s in tenant hierarchy of: %s", userID, tenantID)
 }
 
-func (a *Authorizer) findParentTenant(child *Tenant) *Tenant {
-	visited := make(map[string]bool)
-	var dfs func(*Tenant) *Tenant
-	dfs = func(tenant *Tenant) *Tenant {
-		if visited[tenant.ID] {
-			return nil
-		}
-		visited[tenant.ID] = true
-		for _, parent := range a.tenants {
-			if _, ok := parent.ChildTenants[tenant.ID]; ok {
-				return parent
-			}
-		}
-		return nil
+func (a *Authorizer) isChildTenant(parentID, childID string) bool {
+	parent, exists := a.tenants[parentID]
+	if !exists {
+		return false
 	}
-	return dfs(child)
+	_, exists = parent.ChildTenants[childID]
+	return exists
+}
+
+func (a *Authorizer) findParentTenant(child *Tenant) *Tenant {
+	a.m.RLock()
+	defer a.m.RUnlock()
+	return a.parentCache[child.ID]
 }
 
 func (a *Authorizer) Authorize(request Request) bool {
