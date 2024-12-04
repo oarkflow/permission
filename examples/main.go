@@ -6,7 +6,7 @@ import (
 	"github.com/oarkflow/permission"
 )
 
-func main() {
+func mai1n() {
 	authorizer := permission.New()
 	v2addAttributes(authorizer)
 	tenantA := authorizer.AddTenant(permission.NewTenant("TenantA"))

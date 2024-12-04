@@ -7,7 +7,7 @@ import (
 	"github.com/oarkflow/permission/trie"
 )
 
-func main() {
+func mai2n() {
 	t := trie.New(permission.FilterFunc, permission.DataKeyExtractor)
 	tp1 := &permission.Data{
 		Tenant:            "tenant1",
