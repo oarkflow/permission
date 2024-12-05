@@ -3,87 +3,81 @@ package main
 import (
 	"fmt"
 
-	v2 "github.com/oarkflow/permission/v2"
+	"github.com/oarkflow/permission/v2"
 )
 
 func main() {
-	authorizer := v2.NewAuthorizer()
 
-	rootTenant := v2.NewTenant("TenantA", "TenantA")
-	rootTenant.AddScopes(v2.Scope{Name: "Entity29", Namespace: "NamespaceA"})
-	childTenant := v2.NewTenant("TenantB", "TenantB")
-	childTenant.AddScopes(v2.Scope{Name: "Entity30", Namespace: "NamespaceA"})
-	rootTenant.AddChildTenant(childTenant)
+	auth := v2.NewAuthorizer()
 
-	authorizer.AddTenant(rootTenant, childTenant)
-	coder, _, _, _ := myRoles(authorizer)
+	adminRole := v2.NewRole("Admin")
+	adminRole.AddPermission(
+		v2.Permission{Resource: "user", Method: "create"},
+		v2.Permission{Resource: "user", Method: "delete"},
+	)
 
-	authorizer.AddUserRole(v2.UserRole{
-		User:   "principalA",
-		Tenant: rootTenant.ID,
-		Role:   coder.Name,
-	})
-	r1 := v2.Request{User: "principalA", Tenant: rootTenant.ID, Scope: "Entity29", Resource: "/coding/1/2/start-coding", Method: "POST"}
-	r2 := v2.Request{User: "principalA", Tenant: rootTenant.ID, Resource: "/coding/1/2/start-coding", Method: "POST"}
-	r3 := v2.Request{User: "principalA", Tenant: childTenant.ID, Resource: "/coding/1/2/start-coding", Method: "POST"}
-	fmt.Println(authorizer.Authorize(r1))
-	fmt.Println(authorizer.Authorize(r2))
-	fmt.Println(authorizer.Authorize(r3))
-}
+	editorRole := v2.NewRole("Editor")
+	editorRole.AddPermission(
+		v2.Permission{Resource: "post", Method: "edit"},
+		v2.Permission{Resource: "post", Method: "publish"},
+	)
 
-func myRoles(authorizer *v2.Authorizer) (coder *v2.Role, qa *v2.Role, suspendManager *v2.Role, admin *v2.Role) {
-	coder = v2.NewRole("coder")
-	coder.AddPermission(coderPermissions()...)
-	authorizer.AddRole(coder)
+	auth.AddRole(adminRole, editorRole)
 
-	qa = v2.NewRole("qa")
-	qa.AddPermission(qaPermissions()...)
-	authorizer.AddRole(qa)
+	tenantA := v2.NewTenant("Tenant A", "tenant-a", "default-namespace")
+	tenantA.AddNamespace("marketing")
+	tenantA.AddNamespace("engineering")
 
-	suspendManager = v2.NewRole("suspend-manager")
-	suspendManager.AddPermission(suspendManagerPermissions()...)
-	authorizer.AddRole(suspendManager)
+	auth.AddTenant(tenantA)
 
-	admin = v2.NewRole("admin")
-	admin.AddPermission(adminManagerPermissions()...)
-	authorizer.AddRole(admin)
+	tenantA.AddScopeToNamespace("default-namespace", v2.Scope{Name: "default-scope"})
+	tenantA.AddScopeToNamespace("marketing", v2.Scope{Name: "campaign-management"})
 
-	err := authorizer.AddChildRole(admin.Name, coder.Name, qa.Name, suspendManager.Name)
-	if err != nil {
-		panic(err)
+	auth.AddUserRole(
+		v2.UserRole{
+			User:      "user1",
+			Tenant:    "tenant-a",
+			Namespace: "default-namespace",
+			Scope:     "default-scope",
+			Role:      "Admin",
+		},
+		v2.UserRole{
+			User:      "user2",
+			Tenant:    "tenant-a",
+			Namespace: "marketing",
+			Scope:     "campaign-management",
+			Role:      "Editor",
+		},
+	)
+
+	request1 := v2.Request{
+		User:     "user1",
+		Tenant:   "tenant-a",
+		Category: "default-namespace",
+		Scope:    "default-scope",
+		Resource: "user",
+		Method:   "create",
 	}
-	return
-}
 
-func coderPermissions() []v2.Permission {
-	return []v2.Permission{
-		{Resource: "/coding/:wid/:eid/start-coding", Method: "POST", Category: "backend"},
-		{Resource: "/coding/:wid/open", Method: "GET", Category: "backend"},
-		{Resource: "/coding/:wid/in-progress", Method: "GET", Category: "backend"},
-		{Resource: "/coding/:wid/:eid/review", Method: "POST", Category: "backend"},
+	request2 := v2.Request{
+		User:     "user2",
+		Tenant:   "tenant-a",
+		Category: "marketing",
+		Scope:    "campaign-management",
+		Resource: "post",
+		Method:   "publish",
 	}
-}
 
-func qaPermissions() []v2.Permission {
-	return []v2.Permission{
-		{Resource: "/coding/:wid/:eid/start-qa", Method: "POST", Category: "backend"},
-		{Resource: "/coding/:wid/qa", Method: "GET", Category: "backend"},
-		{Resource: "/coding/:wid/qa-in-progress", Method: "GET", Category: "backend"},
-		{Resource: "/coding/:wid/:eid/qa-review", Method: "POST", Category: "backend"},
+	request3 := v2.Request{
+		User:     "user2",
+		Tenant:   "tenant-a",
+		Category: "engineering",
+		Scope:    "engineering-scope",
+		Resource: "post",
+		Method:   "publish",
 	}
-}
 
-func suspendManagerPermissions() []v2.Permission {
-	return []v2.Permission{
-		{Resource: "/coding/:wid/suspended", Method: "GET", Category: "backend"},
-		{Resource: "/coding/:wid/:eid/release-suspend", Method: "POST", Category: "backend"},
-		{Resource: "/coding/:wid/:eid/request-abandon", Method: "POST", Category: "backend"},
-	}
-}
-
-func adminManagerPermissions() []v2.Permission {
-	return []v2.Permission{
-		{Resource: "/admin/principal/add", Method: "POST", Category: "backend"},
-		{Resource: "/admin/principal/edit", Method: "PUT", Category: "backend"},
-	}
+	fmt.Println("Request 1:", auth.Authorize(request1))
+	fmt.Println("Request 2:", auth.Authorize(request2))
+	fmt.Println("Request 3:", auth.Authorize(request3))
 }

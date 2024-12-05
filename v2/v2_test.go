@@ -39,7 +39,6 @@ func TestAuthorize_ValidGlobalScopePermission(t *testing.T) {
 	request := Request{
 		User:     "user3",
 		Tenant:   "tenant2",
-		Scope:    "",
 		Resource: "resourceC",
 		Method:   "DELETE",
 	}
@@ -129,9 +128,12 @@ func setupAuthorizer() *Authorizer {
 	role := NewRole("role1")
 	role.AddPermission(Permission{Resource: "resourceA", Method: "GET", Category: "category1"})
 	authorizer.AddRole(role)
-
-	tenant := NewTenant("tenant1", "tenant1")
-	tenant.AddScopes(Scope{Name: "scope1", Namespace: "coding"})
+	namespace := "coding"
+	tenant := NewTenant("tenant1", "tenant1", namespace)
+	err := tenant.AddScopeToNamespace(namespace, Scope{Name: "scope1"})
+	if err != nil {
+		panic(err)
+	}
 	authorizer.AddTenant(tenant)
 	authorizer.AddUserRole(UserRole{
 		User:   "user1",

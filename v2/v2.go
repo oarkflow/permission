@@ -44,20 +44,53 @@ func (r *Role) RemovePermission(permissions ...Permission) {
 }
 
 type Scope struct {
-	Name      string
-	Namespace string
+	Name string
+}
+
+type Namespace struct {
+	Name   string
+	Scopes map[string]Scope
 }
 
 type Tenant struct {
 	ID           string
 	Name         string
+	Namespaces   map[string]Namespace
+	DefaultNS    string
 	ChildTenants map[string]*Tenant
-	Scopes       map[string]Scope
 	m            sync.RWMutex
 }
 
-func NewTenant(name, id string) *Tenant {
-	return &Tenant{ID: id, Name: name, ChildTenants: make(map[string]*Tenant), Scopes: make(map[string]Scope)}
+func NewTenant(name, id, defaultNS string) *Tenant {
+	return &Tenant{
+		ID:           id,
+		Name:         name,
+		DefaultNS:    defaultNS,
+		Namespaces:   map[string]Namespace{defaultNS: {Name: defaultNS, Scopes: make(map[string]Scope)}},
+		ChildTenants: make(map[string]*Tenant),
+	}
+}
+
+func (t *Tenant) AddNamespace(namespace string) {
+	t.m.Lock()
+	defer t.m.Unlock()
+	if _, exists := t.Namespaces[namespace]; !exists {
+		t.Namespaces[namespace] = Namespace{Name: namespace, Scopes: make(map[string]Scope)}
+	}
+}
+
+func (t *Tenant) AddScopeToNamespace(namespace string, scopes ...Scope) error {
+	t.m.Lock()
+	defer t.m.Unlock()
+	ns, exists := t.Namespaces[namespace]
+	if !exists {
+		return fmt.Errorf("namespace %s does not exist in tenant %s", namespace, t.Name)
+	}
+	for _, scope := range scopes {
+		ns.Scopes[scope.Name] = scope
+	}
+	t.Namespaces[namespace] = ns
+	return nil
 }
 
 func (t *Tenant) AddChildTenant(tenants ...*Tenant) {
@@ -68,18 +101,11 @@ func (t *Tenant) AddChildTenant(tenants ...*Tenant) {
 	}
 }
 
-func (t *Tenant) AddScopes(scopes ...Scope) {
-	t.m.Lock()
-	defer t.m.Unlock()
-	for _, scope := range scopes {
-		t.Scopes[scope.Name] = scope
-	}
-}
-
 type UserRole struct {
 	User              string
 	Tenant            string
 	Scope             string
+	Namespace         string
 	Role              string
 	ManageChildTenant bool
 }
@@ -229,10 +255,14 @@ var (
 	checkedTenantsPool    = utils.New(func() map[string]bool { return make(map[string]bool) })
 )
 
-func (a *Authorizer) resolveUserRoles(userID, tenantID, scopeName string) (map[string]struct{}, error) {
-	scopedPermissions := scopedPermissionsPool.Get()
+func (a *Authorizer) resolveUserRoles(userID, tenantID, namespace, scopeName string) (map[string]struct{}, error) {
+	tenant, exists := a.tenants[tenantID]
+	if !exists {
+		return nil, fmt.Errorf("invalid tenant: %v", tenantID)
+	}
+	checkedTenants := make(map[string]bool)
 	globalPermissions := globalPermissionsPool.Get()
-	checkedTenants := checkedTenantsPool.Get()
+	scopedPermissions := scopedPermissionsPool.Get()
 	clear(scopedPermissions)
 	clear(globalPermissions)
 	clear(checkedTenants)
@@ -241,34 +271,42 @@ func (a *Authorizer) resolveUserRoles(userID, tenantID, scopeName string) (map[s
 		globalPermissionsPool.Put(globalPermissions)
 		checkedTenantsPool.Put(checkedTenants)
 	}()
-
-	tenant, exists := a.tenants[tenantID]
-	if !exists {
-		return nil, fmt.Errorf("invalid tenant: %v", tenantID)
-	}
-	for current := tenant; current != nil; current = a.findParentTenant(current) {
+	var traverse func(current *Tenant) error
+	traverse = func(current *Tenant) error {
 		if checkedTenants[current.ID] {
-			continue
+			return nil
 		}
 		checkedTenants[current.ID] = true
 		for _, userRole := range a.userRoles {
-			if userRole.User == userID && userRole.Tenant == current.ID {
-				if current.ID != tenant.ID && !userRole.ManageChildTenant {
-					continue
-				}
+			if userRole.User != userID || userRole.Tenant != current.ID {
+				continue
+			}
+			if userRole.Namespace == "" || userRole.Namespace == namespace {
+				permissions := a.roles.ResolvePermissions(userRole.Role)
 				if userRole.Scope == scopeName {
-					permissions := a.roles.ResolvePermissions(userRole.Role)
 					for perm := range permissions {
 						scopedPermissions[perm] = struct{}{}
 					}
 				} else if userRole.Scope == "" {
-					permissions := a.roles.ResolvePermissions(userRole.Role)
 					for perm := range permissions {
 						globalPermissions[perm] = struct{}{}
 					}
 				}
 			}
 		}
+		for _, userRole := range a.userRoles {
+			if userRole.User == userID && userRole.Tenant == current.ID && userRole.ManageChildTenant {
+				for _, child := range current.ChildTenants {
+					if err := traverse(child); err != nil {
+						return err
+					}
+				}
+			}
+		}
+		return nil
+	}
+	if err := traverse(tenant); err != nil {
+		return nil, err
 	}
 	if len(scopedPermissions) > 0 {
 		return scopedPermissions, nil
@@ -276,7 +314,7 @@ func (a *Authorizer) resolveUserRoles(userID, tenantID, scopeName string) (map[s
 	if len(globalPermissions) > 0 {
 		return globalPermissions, nil
 	}
-	return nil, fmt.Errorf("no roles or permissions found for user: %s in tenant hierarchy of: %s", userID, tenantID)
+	return nil, fmt.Errorf("no roles or permissions found")
 }
 
 func (a *Authorizer) isChildTenant(parentID, childID string) bool {
@@ -309,10 +347,22 @@ func (a *Authorizer) Authorize(request Request) bool {
 		targetTenants = []*Tenant{tenant}
 	}
 	for _, tenant := range targetTenants {
-		if request.Scope != "" && !isScopeValid(tenant, request.Scope) {
+		namespace := request.Category
+		if namespace == "" {
+			if len(tenant.Namespaces) == 1 {
+				namespace = tenant.DefaultNS
+			} else {
+				return false
+			}
+		}
+		ns, exists := tenant.Namespaces[namespace]
+		if !exists {
 			continue
 		}
-		permissions, err := a.resolveUserRoles(request.User, tenant.ID, request.Scope)
+		if request.Scope != "" && !a.isScopeValidForNamespace(ns, request.Scope) {
+			continue
+		}
+		permissions, err := a.resolveUserRoles(request.User, tenant.ID, namespace, request.Scope)
 		if err != nil {
 			continue
 		}
@@ -323,6 +373,11 @@ func (a *Authorizer) Authorize(request Request) bool {
 		}
 	}
 	return false
+}
+
+func (a *Authorizer) isScopeValidForNamespace(ns Namespace, scopeName string) bool {
+	_, exists := ns.Scopes[scopeName]
+	return exists
 }
 
 func (a *Authorizer) findUserTenants(userID string) []*Tenant {
@@ -347,18 +402,4 @@ func matchPermission(permission string, request Request) bool {
 	}
 	requestToCheck := request.Resource + " " + request.Method
 	return utils.MatchResource(requestToCheck, permission)
-}
-
-func isScopeValid(tenant *Tenant, scopeName string) bool {
-	tenant.m.RLock()
-	defer tenant.m.RUnlock()
-	if _, ok := tenant.Scopes[scopeName]; ok {
-		return true
-	}
-	for _, child := range tenant.ChildTenants {
-		if isScopeValid(child, scopeName) {
-			return true
-		}
-	}
-	return false
 }
