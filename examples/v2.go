@@ -51,30 +51,30 @@ func main() {
 	)
 
 	request1 := v2.Request{
-		User:     "user1",
-		Tenant:   "tenant-a",
-		Category: "default-namespace",
-		Scope:    "default-scope",
-		Resource: "user",
-		Method:   "create",
+		User:      "user1",
+		Tenant:    "tenant-a",
+		Namespace: "default-namespace",
+		Scope:     "default-scope",
+		Resource:  "user",
+		Method:    "create",
 	}
 
 	request2 := v2.Request{
-		User:     "user2",
-		Tenant:   "tenant-a",
-		Category: "marketing",
-		Scope:    "campaign-management",
-		Resource: "post",
-		Method:   "publish",
+		User:      "user2",
+		Tenant:    "tenant-a",
+		Namespace: "marketing",
+		Scope:     "campaign-management",
+		Resource:  "post",
+		Method:    "publish",
 	}
 
 	request3 := v2.Request{
-		User:     "user2",
-		Tenant:   "tenant-a",
-		Category: "engineering",
-		Scope:    "engineering-scope",
-		Resource: "post",
-		Method:   "publish",
+		User:      "user2",
+		Tenant:    "tenant-a",
+		Namespace: "engineering",
+		Scope:     "engineering-scope",
+		Resource:  "post",
+		Method:    "publish",
 	}
 
 	fmt.Println("Request 1:", auth.Authorize(request1))

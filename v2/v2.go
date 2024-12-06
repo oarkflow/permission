@@ -111,12 +111,12 @@ type UserRole struct {
 }
 
 type Request struct {
-	User     string
-	Tenant   string
-	Scope    string
-	Category string
-	Resource string
-	Method   string
+	User      string
+	Tenant    string
+	Namespace string
+	Scope     string
+	Resource  string
+	Method    string
 }
 
 type RoleDAG struct {
@@ -347,7 +347,7 @@ func (a *Authorizer) Authorize(request Request) bool {
 		targetTenants = []*Tenant{tenant}
 	}
 	for _, tenant := range targetTenants {
-		namespace := request.Category
+		namespace := request.Namespace
 		if namespace == "" {
 			if len(tenant.Namespaces) == 1 {
 				namespace = tenant.DefaultNS
