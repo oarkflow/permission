@@ -11,11 +11,11 @@ import (
 
 func BenchmarkV2(b *testing.B) {
 	authorizer := v2.NewAuthorizer()
-
-	rootTenant := v2.NewTenant("TenantA", "TenantA")
-	rootTenant.AddScopes(v2.Scope{Name: "Entity29", Namespace: "NamespaceA"})
-	childTenant := v2.NewTenant("TenantB", "TenantB")
-	childTenant.AddScopes(v2.Scope{Name: "Entity30", Namespace: "NamespaceA"})
+	namespace := "NamespaceA"
+	rootTenant := v2.NewTenant("TenantA", "TenantA", namespace)
+	rootTenant.AddScopeToNamespace(namespace, v2.Scope{Name: "Entity29"})
+	childTenant := v2.NewTenant("TenantB", "TenantB", namespace)
+	childTenant.AddScopeToNamespace(namespace, v2.Scope{Name: "Entity30"})
 	rootTenant.AddChildTenant(childTenant)
 
 	authorizer.AddTenant(rootTenant, childTenant)

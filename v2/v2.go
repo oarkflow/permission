@@ -332,8 +332,14 @@ func (a *Authorizer) findParentTenant(child *Tenant) *Tenant {
 	return a.parentCache[child.ID]
 }
 
+var tenantPool = utils.NewSlicePool[*Tenant](10)
+
 func (a *Authorizer) Authorize(request Request) bool {
-	var targetTenants []*Tenant
+	targetTenants := tenantPool.Get()
+	clear(targetTenants)
+	defer func() {
+		tenantPool.Put(targetTenants)
+	}()
 	if request.Tenant == "" {
 		targetTenants = a.findUserTenants(request.User)
 		if len(targetTenants) == 0 {
