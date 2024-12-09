@@ -182,7 +182,6 @@ func (dag *RoleDAG) ResolvePermissions(roleName string) map[string]struct{} {
 		return permissions
 	}
 	dag.mu.RUnlock()
-
 	dag.mu.Lock()
 	defer dag.mu.Unlock()
 	visited := make(map[string]bool)
@@ -355,7 +354,9 @@ func (a *Authorizer) Authorize(request Request) bool {
 	for _, tenant := range targetTenants {
 		namespace := request.Namespace
 		if namespace == "" {
-			if len(tenant.Namespaces) == 1 {
+			if tenant.DefaultNS != "" {
+				namespace = tenant.DefaultNS
+			} else if len(tenant.Namespaces) == 1 {
 				namespace = tenant.DefaultNS
 			} else {
 				return false

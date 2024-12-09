@@ -35,11 +35,10 @@ func main() {
 
 	auth.AddUserRole(
 		v2.UserRole{
-			User:      "user1",
-			Tenant:    "tenant-a",
-			Namespace: "default-namespace",
-			Scope:     "default-scope",
-			Role:      "Admin",
+			User:              "user1",
+			Tenant:            "tenant-a",
+			Role:              "Admin",
+			ManageChildTenant: true,
 		},
 		v2.UserRole{
 			User:      "user2",
@@ -51,12 +50,11 @@ func main() {
 	)
 
 	request1 := v2.Request{
-		User:      "user1",
-		Tenant:    "tenant-a",
-		Namespace: "default-namespace",
-		Scope:     "default-scope",
-		Resource:  "user",
-		Method:    "create",
+		User:     "user1",
+		Tenant:   "tenant-a",
+		Scope:    "default-scope",
+		Resource: "user",
+		Method:   "create",
 	}
 
 	request2 := v2.Request{
