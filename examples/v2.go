@@ -12,35 +12,35 @@ func main() {
 
 	adminRole := v2.NewRole("Admin")
 	adminRole.AddPermission(
-		v2.Permission{Resource: "user", Method: "create"},
-		v2.Permission{Resource: "user", Method: "delete"},
+		v2.NewPermission("backend", "user", "create"),
+		v2.NewPermission("backend", "user", "delete"),
 	)
 
 	editorRole := v2.NewRole("Editor")
 	editorRole.AddPermission(
-		v2.Permission{Resource: "post", Method: "edit"},
-		v2.Permission{Resource: "post", Method: "publish"},
+		v2.NewPermission("backend", "post", "edit"),
+		v2.NewPermission("backend", "post", "publish"),
 	)
 
 	auth.AddRoles(adminRole, editorRole)
 
-	tenantA := v2.NewTenant("Tenant A", "tenant-a", "default-namespace")
+	tenantA := v2.NewTenant("tenant-a", "default-namespace")
 	tenantA.AddNamespace("marketing")
 	tenantA.AddNamespace("engineering")
 	auth.AddTenant(tenantA)
 
-	tenantA.AddScopeToNamespace("default-namespace", v2.Scope{Name: "default-scope"})
-	tenantA.AddScopeToNamespace("marketing", v2.Scope{Name: "campaign-management"})
+	tenantA.AddScopeToNamespace("default-namespace", v2.NewScope("default-scope"))
+	tenantA.AddScopeToNamespace("marketing", v2.NewScope("campaign-management"))
 
-	auth.AddUserRole(
-		v2.UserRole{
-			User:              "user1",
+	auth.AddPrincipalRole(
+		v2.PrincipalRole{
+			Principal:         "user1",
 			Tenant:            "tenant-a",
 			Role:              "Admin",
 			ManageChildTenant: true,
 		},
-		v2.UserRole{
-			User:      "user2",
+		v2.PrincipalRole{
+			Principal: "user2",
 			Tenant:    "tenant-a",
 			Namespace: "marketing",
 			Scope:     "campaign-management",
@@ -49,29 +49,29 @@ func main() {
 	)
 
 	request1 := v2.Request{
-		User:     "user1",
-		Tenant:   "tenant-a",
-		Scope:    "default-scope",
-		Resource: "user",
-		Method:   "create",
+		Principal: "user1",
+		Tenant:    "tenant-a",
+		Scope:     "default-scope",
+		Resource:  "user",
+		Action:    "create",
 	}
 
 	request2 := v2.Request{
-		User:      "user2",
+		Principal: "user2",
 		Tenant:    "tenant-a",
 		Namespace: "marketing",
 		Scope:     "campaign-management",
 		Resource:  "post",
-		Method:    "publish",
+		Action:    "publish",
 	}
 
 	request3 := v2.Request{
-		User:      "user2",
+		Principal: "user2",
 		Tenant:    "tenant-a",
 		Namespace: "engineering",
 		Scope:     "engineering-scope",
 		Resource:  "post",
-		Method:    "publish",
+		Action:    "publish",
 	}
 
 	fmt.Println("Request 1:", auth.Authorize(request1))

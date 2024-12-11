@@ -13,20 +13,20 @@ func BenchmarkV2(b *testing.B) {
 	authorizer := v2.NewAuthorizer()
 	namespace := "NamespaceA"
 	rootTenant := v2.NewTenant("TenantA", "TenantA", namespace)
-	rootTenant.AddScopeToNamespace(namespace, v2.Scope{Name: "Entity29"})
+	rootTenant.AddScopeToNamespace(namespace, &v2.Scope{ID: "Entity29"})
 	childTenant := v2.NewTenant("TenantB", "TenantB", namespace)
-	childTenant.AddScopeToNamespace(namespace, v2.Scope{Name: "Entity30"})
+	childTenant.AddScopeToNamespace(namespace, &v2.Scope{ID: "Entity30"})
 	rootTenant.AddChildTenant(childTenant)
 
-	authorizer.AddTenant(rootTenant, childTenant)
+	authorizer.AddTenants(rootTenant, childTenant)
 	coder, _, _, _ := v2myRoles(authorizer)
 
-	authorizer.AddUserRole(v2.UserRole{
-		User:   "principalA",
-		Tenant: rootTenant.ID,
-		Role:   coder.Name,
+	authorizer.AddPrincipalRole(v2.PrincipalRole{
+		Principal: "principalA",
+		Tenant:    rootTenant.ID,
+		Role:      coder.Name,
 	})
-	r1 := v2.Request{User: "principalA", Tenant: rootTenant.ID, Scope: "Entity29", Resource: "/coding/1/2/start-coding", Method: "POST"}
+	r1 := v2.Request{Principal: "principalA", Tenant: rootTenant.ID, Scope: "Entity29", Resource: "/coding/1/2/start-coding", Action: "POST"}
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		authorizer.Authorize(r1)
@@ -54,36 +54,36 @@ func v2myRoles(authorizer *v2.Authorizer) (coder *v2.Role, qa *v2.Role, suspendM
 	return
 }
 
-func v2coderPermissions() []v2.Permission {
-	return []v2.Permission{
-		{Resource: "/coding/:wid/:eid/start-coding", Method: "POST", Category: "backend"},
-		{Resource: "/coding/:wid/open", Method: "GET", Category: "backend"},
-		{Resource: "/coding/:wid/in-progress", Method: "GET", Category: "backend"},
-		{Resource: "/coding/:wid/:eid/review", Method: "POST", Category: "backend"},
+func v2coderPermissions() []*v2.Permission {
+	return []*v2.Permission{
+		{Resource: "/coding/:wid/:eid/start-coding", Action: "POST", Category: "backend"},
+		{Resource: "/coding/:wid/open", Action: "GET", Category: "backend"},
+		{Resource: "/coding/:wid/in-progress", Action: "GET", Category: "backend"},
+		{Resource: "/coding/:wid/:eid/review", Action: "POST", Category: "backend"},
 	}
 }
 
-func v2qaPermissions() []v2.Permission {
-	return []v2.Permission{
-		{Resource: "/coding/:wid/:eid/start-qa", Method: "POST", Category: "backend"},
-		{Resource: "/coding/:wid/qa", Method: "GET", Category: "backend"},
-		{Resource: "/coding/:wid/qa-in-progress", Method: "GET", Category: "backend"},
-		{Resource: "/coding/:wid/:eid/qa-review", Method: "POST", Category: "backend"},
+func v2qaPermissions() []*v2.Permission {
+	return []*v2.Permission{
+		{Resource: "/coding/:wid/:eid/start-qa", Action: "POST", Category: "backend"},
+		{Resource: "/coding/:wid/qa", Action: "GET", Category: "backend"},
+		{Resource: "/coding/:wid/qa-in-progress", Action: "GET", Category: "backend"},
+		{Resource: "/coding/:wid/:eid/qa-review", Action: "POST", Category: "backend"},
 	}
 }
 
-func v2suspendManagerPermissions() []v2.Permission {
-	return []v2.Permission{
-		{Resource: "/coding/:wid/suspended", Method: "GET", Category: "backend"},
-		{Resource: "/coding/:wid/:eid/release-suspend", Method: "POST", Category: "backend"},
-		{Resource: "/coding/:wid/:eid/request-abandon", Method: "POST", Category: "backend"},
+func v2suspendManagerPermissions() []*v2.Permission {
+	return []*v2.Permission{
+		{Resource: "/coding/:wid/suspended", Action: "GET", Category: "backend"},
+		{Resource: "/coding/:wid/:eid/release-suspend", Action: "POST", Category: "backend"},
+		{Resource: "/coding/:wid/:eid/request-abandon", Action: "POST", Category: "backend"},
 	}
 }
 
-func v2adminManagerPermissions() []v2.Permission {
-	return []v2.Permission{
-		{Resource: "/admin/principal/add", Method: "POST", Category: "backend"},
-		{Resource: "/admin/principal/edit", Method: "PUT", Category: "backend"},
+func v2adminManagerPermissions() []*v2.Permission {
+	return []*v2.Permission{
+		{Resource: "/admin/principal/add", Action: "POST", Category: "backend"},
+		{Resource: "/admin/principal/edit", Action: "PUT", Category: "backend"},
 	}
 }
 

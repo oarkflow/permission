@@ -7,27 +7,11 @@ import (
 	"github.com/oarkflow/permission/utils"
 )
 
-type Permission struct {
-	Resource string
-	Method   string
-	Category string
+func (p *Permission) String() string {
+	return p.Resource + " " + p.Action
 }
 
-func (p Permission) String() string {
-	return p.Resource + " " + p.Method
-}
-
-type Role struct {
-	Name        string
-	Permissions map[string]struct{}
-	m           sync.RWMutex
-}
-
-func NewRole(name string) *Role {
-	return &Role{Name: name, Permissions: make(map[string]struct{})}
-}
-
-func (r *Role) AddPermission(permissions ...Permission) {
+func (r *Role) AddPermission(permissions ...*Permission) {
 	r.m.Lock()
 	defer r.m.Unlock()
 	for _, permission := range permissions {
@@ -35,7 +19,7 @@ func (r *Role) AddPermission(permissions ...Permission) {
 	}
 }
 
-func (r *Role) RemovePermission(permissions ...Permission) {
+func (r *Role) RemovePermission(permissions ...*Permission) {
 	r.m.Lock()
 	defer r.m.Unlock()
 	for _, permission := range permissions {
@@ -43,60 +27,26 @@ func (r *Role) RemovePermission(permissions ...Permission) {
 	}
 }
 
-type Scope struct {
-	Name string
-}
-
-type Namespace struct {
-	Name   string
-	Scopes map[string]Scope
-}
-
-type Tenant struct {
-	ID           string
-	Name         string
-	Namespaces   map[string]Namespace
-	DefaultNS    string
-	ChildTenants map[string]*Tenant
-	m            sync.RWMutex
-}
-
-func NewTenant(name, id string, defaultNamespace ...string) *Tenant {
-	namespaces := make(map[string]Namespace)
-	var defaultNS string
-	if len(defaultNamespace) > 0 {
-		defaultNS = defaultNamespace[0]
-		namespaces[defaultNS] = Namespace{Name: defaultNS, Scopes: make(map[string]Scope)}
-	}
-	return &Tenant{
-		ID:           id,
-		Name:         name,
-		DefaultNS:    defaultNS,
-		Namespaces:   namespaces,
-		ChildTenants: make(map[string]*Tenant),
-	}
-}
-
 func (t *Tenant) AddNamespace(namespace string, isDefault ...bool) {
 	t.m.Lock()
 	defer t.m.Unlock()
 	if _, exists := t.Namespaces[namespace]; !exists {
-		t.Namespaces[namespace] = Namespace{Name: namespace, Scopes: make(map[string]Scope)}
+		t.Namespaces[namespace] = NewNamespace(namespace)
 	}
 	if len(isDefault) > 0 && isDefault[0] {
 		t.DefaultNS = namespace
 	}
 }
 
-func (t *Tenant) AddScopeToNamespace(namespace string, scopes ...Scope) error {
+func (t *Tenant) AddScopeToNamespace(namespace string, scopes ...*Scope) error {
 	t.m.Lock()
 	defer t.m.Unlock()
 	ns, exists := t.Namespaces[namespace]
 	if !exists {
-		return fmt.Errorf("namespace %s does not exist in tenant %s", namespace, t.Name)
+		return fmt.Errorf("namespace %s does not exist in tenant %s", namespace, t.ID)
 	}
 	for _, scope := range scopes {
-		ns.Scopes[scope.Name] = scope
+		ns.Scopes[scope.ID] = scope
 	}
 	t.Namespaces[namespace] = ns
 	return nil
@@ -110,8 +60,8 @@ func (t *Tenant) AddChildTenant(tenants ...*Tenant) {
 	}
 }
 
-type UserRole struct {
-	User              string
+type PrincipalRole struct {
+	Principal         string
 	Tenant            string
 	Scope             string
 	Namespace         string
@@ -120,12 +70,12 @@ type UserRole struct {
 }
 
 type Request struct {
-	User      string
+	Principal string
 	Tenant    string
 	Namespace string
 	Scope     string
 	Resource  string
-	Method    string
+	Action    string
 }
 
 type RoleDAG struct {
@@ -217,25 +167,32 @@ func (dag *RoleDAG) ResolvePermissions(roleName string) map[string]struct{} {
 }
 
 type Authorizer struct {
-	roles       *RoleDAG
-	userRoles   []UserRole
-	userRoleMap map[string]map[string][]UserRole // Map[userID][tenantID][]UserRole
+	roleDAG     *RoleDAG
+	userRoles   []PrincipalRole
+	userRoleMap map[string]map[string][]PrincipalRole // Map[userID][tenantID][]PrincipalRole
 	tenants     map[string]*Tenant
+	namespaces  map[string]*Namespace
+	scopes      map[string]*Scope
+	principals  map[string]*Principal
+	permissions map[string]*Permission
 	parentCache map[string]*Tenant
 	m           sync.RWMutex
 }
 
 func NewAuthorizer() *Authorizer {
 	return &Authorizer{
-		roles:       NewRoleDAG(),
+		roleDAG:     NewRoleDAG(),
 		tenants:     make(map[string]*Tenant),
 		parentCache: make(map[string]*Tenant),
-		userRoleMap: make(map[string]map[string][]UserRole),
+		namespaces:  make(map[string]*Namespace),
+		scopes:      make(map[string]*Scope),
+		principals:  make(map[string]*Principal),
+		userRoleMap: make(map[string]map[string][]PrincipalRole),
 	}
 }
 
 func (a *Authorizer) AddRoles(role ...*Role) {
-	a.roles.AddRole(role...)
+	a.roleDAG.AddRole(role...)
 }
 
 func (a *Authorizer) AddRole(role *Role) *Role {
@@ -244,12 +201,84 @@ func (a *Authorizer) AddRole(role *Role) *Role {
 }
 
 func (a *Authorizer) GetRole(val string) (*Role, bool) {
-	role, ok := a.roles.roles[val]
+	role, ok := a.roleDAG.roles[val]
 	return role, ok
 }
 
+func (a *Authorizer) AddPrincipals(p ...*Principal) {
+	for _, principal := range p {
+		a.AddPrincipal(principal)
+	}
+}
+
+func (a *Authorizer) AddPrincipal(p *Principal) *Principal {
+	a.m.Lock()
+	defer a.m.Unlock()
+	a.principals[p.ID] = p
+	return p
+}
+
+func (a *Authorizer) GetPrincipal(val string) (*Principal, bool) {
+	data, ok := a.principals[val]
+	return data, ok
+}
+
+func (a *Authorizer) AddNamespaces(p ...*Namespace) {
+	for _, namespace := range p {
+		a.AddNamespace(namespace)
+	}
+}
+
+func (a *Authorizer) AddNamespace(p *Namespace) *Namespace {
+	a.m.Lock()
+	defer a.m.Unlock()
+	a.namespaces[p.ID] = p
+	return p
+}
+
+func (a *Authorizer) GetNamespace(val string) (*Namespace, bool) {
+	data, ok := a.namespaces[val]
+	return data, ok
+}
+
+func (a *Authorizer) AddScopes(p ...*Scope) {
+	for _, namespace := range p {
+		a.AddScope(namespace)
+	}
+}
+
+func (a *Authorizer) AddScope(p *Scope) *Scope {
+	a.m.Lock()
+	defer a.m.Unlock()
+	a.scopes[p.ID] = p
+	return p
+}
+
+func (a *Authorizer) GetScope(val string) (*Scope, bool) {
+	data, ok := a.scopes[val]
+	return data, ok
+}
+
+func (a *Authorizer) AddPermissions(p ...*Permission) {
+	for _, namespace := range p {
+		a.AddPermission(namespace)
+	}
+}
+
+func (a *Authorizer) AddPermission(p *Permission) *Permission {
+	a.m.Lock()
+	defer a.m.Unlock()
+	a.permissions[p.String()] = p
+	return p
+}
+
+func (a *Authorizer) GetPermission(val string) (*Permission, bool) {
+	data, ok := a.permissions[val]
+	return data, ok
+}
+
 func (a *Authorizer) AddChildRole(parent string, child ...string) error {
-	return a.roles.AddChildRole(parent, child...)
+	return a.roleDAG.AddChildRole(parent, child...)
 }
 
 func (a *Authorizer) AddTenants(tenants ...*Tenant) {
@@ -275,15 +304,15 @@ func (a *Authorizer) GetTenant(id string) (*Tenant, bool) {
 	return tenant, ok
 }
 
-func (a *Authorizer) AddUserRole(userRole ...UserRole) {
+func (a *Authorizer) AddPrincipalRole(userRole ...PrincipalRole) {
 	a.m.Lock()
 	defer a.m.Unlock()
 	for _, ur := range userRole {
 		a.userRoles = append(a.userRoles, ur)
-		if a.userRoleMap[ur.User] == nil {
-			a.userRoleMap[ur.User] = make(map[string][]UserRole)
+		if a.userRoleMap[ur.Principal] == nil {
+			a.userRoleMap[ur.Principal] = make(map[string][]PrincipalRole)
 		}
-		a.userRoleMap[ur.User][ur.Tenant] = append(a.userRoleMap[ur.User][ur.Tenant], ur)
+		a.userRoleMap[ur.Principal][ur.Tenant] = append(a.userRoleMap[ur.Principal][ur.Tenant], ur)
 	}
 }
 
@@ -293,7 +322,7 @@ var (
 	checkedTenantsPool    = utils.New(func() map[string]bool { return make(map[string]bool) })
 )
 
-func (a *Authorizer) resolveUserRoles(userID, tenantID, namespace, scopeName string) (map[string]struct{}, error) {
+func (a *Authorizer) resolvePrincipalRoles(userID, tenantID, namespace, scopeName string) (map[string]struct{}, error) {
 	tenant, exists := a.tenants[tenantID]
 	if !exists {
 		return nil, fmt.Errorf("invalid tenant: %v", tenantID)
@@ -316,11 +345,11 @@ func (a *Authorizer) resolveUserRoles(userID, tenantID, namespace, scopeName str
 		}
 		checkedTenants[current.ID] = true
 		for _, userRole := range a.userRoles {
-			if userRole.User != userID || userRole.Tenant != current.ID {
+			if userRole.Principal != userID || userRole.Tenant != current.ID {
 				continue
 			}
 			if userRole.Namespace == "" || userRole.Namespace == namespace {
-				permissions := a.roles.ResolvePermissions(userRole.Role)
+				permissions := a.roleDAG.ResolvePermissions(userRole.Role)
 				if userRole.Scope == scopeName {
 					for perm := range permissions {
 						scopedPermissions[perm] = struct{}{}
@@ -333,7 +362,7 @@ func (a *Authorizer) resolveUserRoles(userID, tenantID, namespace, scopeName str
 			}
 		}
 		for _, userRole := range a.userRoles {
-			if userRole.User == userID && userRole.Tenant == current.ID && userRole.ManageChildTenant {
+			if userRole.Principal == userID && userRole.Tenant == current.ID && userRole.ManageChildTenant {
 				for _, child := range current.ChildTenants {
 					if err := traverse(child); err != nil {
 						return err
@@ -352,7 +381,7 @@ func (a *Authorizer) resolveUserRoles(userID, tenantID, namespace, scopeName str
 	if len(globalPermissions) > 0 {
 		return globalPermissions, nil
 	}
-	return nil, fmt.Errorf("no roles or permissions found")
+	return nil, fmt.Errorf("no roleDAG or permissions found")
 }
 
 func (a *Authorizer) isChildTenant(parentID, childID string) bool {
@@ -379,7 +408,7 @@ func (a *Authorizer) Authorize(request Request) bool {
 		tenantPool.Put(targetTenants)
 	}()
 	if request.Tenant == "" {
-		targetTenants = a.findUserTenants(request.User)
+		targetTenants = a.findPrincipalTenants(request.Principal)
 		if len(targetTenants) == 0 {
 			return false
 		}
@@ -408,7 +437,7 @@ func (a *Authorizer) Authorize(request Request) bool {
 		if request.Scope != "" && !a.isScopeValidForNamespace(ns, request.Scope) {
 			continue
 		}
-		permissions, err := a.resolveUserRoles(request.User, tenant.ID, namespace, request.Scope)
+		permissions, err := a.resolvePrincipalRoles(request.Principal, tenant.ID, namespace, request.Scope)
 		if err != nil {
 			continue
 		}
@@ -421,15 +450,15 @@ func (a *Authorizer) Authorize(request Request) bool {
 	return false
 }
 
-func (a *Authorizer) isScopeValidForNamespace(ns Namespace, scopeName string) bool {
+func (a *Authorizer) isScopeValidForNamespace(ns *Namespace, scopeName string) bool {
 	_, exists := ns.Scopes[scopeName]
 	return exists
 }
 
-func (a *Authorizer) findUserTenants(userID string) []*Tenant {
+func (a *Authorizer) findPrincipalTenants(userID string) []*Tenant {
 	tenantSet := make(map[string]*Tenant)
 	for _, userRole := range a.userRoles {
-		if userRole.User == userID {
+		if userRole.Principal == userID {
 			if tenant, exists := a.tenants[userRole.Tenant]; exists {
 				tenantSet[userRole.Tenant] = tenant
 			}
@@ -443,9 +472,9 @@ func (a *Authorizer) findUserTenants(userID string) []*Tenant {
 }
 
 func matchPermission(permission string, request Request) bool {
-	if request.Resource == "" && request.Method == "" {
+	if request.Resource == "" && request.Action == "" {
 		return false
 	}
-	requestToCheck := request.Resource + " " + request.Method
+	requestToCheck := request.Resource + " " + request.Action
 	return utils.MatchResource(requestToCheck, permission)
 }
