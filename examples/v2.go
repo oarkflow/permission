@@ -22,12 +22,11 @@ func main() {
 		v2.Permission{Resource: "post", Method: "publish"},
 	)
 
-	auth.AddRole(adminRole, editorRole)
+	auth.AddRoles(adminRole, editorRole)
 
 	tenantA := v2.NewTenant("Tenant A", "tenant-a", "default-namespace")
 	tenantA.AddNamespace("marketing")
 	tenantA.AddNamespace("engineering")
-
 	auth.AddTenant(tenantA)
 
 	tenantA.AddScopeToNamespace("default-namespace", v2.Scope{Name: "default-scope"})

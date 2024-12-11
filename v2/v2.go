@@ -61,21 +61,30 @@ type Tenant struct {
 	m            sync.RWMutex
 }
 
-func NewTenant(name, id, defaultNS string) *Tenant {
+func NewTenant(name, id string, defaultNamespace ...string) *Tenant {
+	namespaces := make(map[string]Namespace)
+	var defaultNS string
+	if len(defaultNamespace) > 0 {
+		defaultNS = defaultNamespace[0]
+		namespaces[defaultNS] = Namespace{Name: defaultNS, Scopes: make(map[string]Scope)}
+	}
 	return &Tenant{
 		ID:           id,
 		Name:         name,
 		DefaultNS:    defaultNS,
-		Namespaces:   map[string]Namespace{defaultNS: {Name: defaultNS, Scopes: make(map[string]Scope)}},
+		Namespaces:   namespaces,
 		ChildTenants: make(map[string]*Tenant),
 	}
 }
 
-func (t *Tenant) AddNamespace(namespace string) {
+func (t *Tenant) AddNamespace(namespace string, isDefault ...bool) {
 	t.m.Lock()
 	defer t.m.Unlock()
 	if _, exists := t.Namespaces[namespace]; !exists {
 		t.Namespaces[namespace] = Namespace{Name: namespace, Scopes: make(map[string]Scope)}
+	}
+	if len(isDefault) > 0 && isDefault[0] {
+		t.DefaultNS = namespace
 	}
 }
 
@@ -210,6 +219,7 @@ func (dag *RoleDAG) ResolvePermissions(roleName string) map[string]struct{} {
 type Authorizer struct {
 	roles       *RoleDAG
 	userRoles   []UserRole
+	userRoleMap map[string]map[string][]UserRole // Map[userID][tenantID][]UserRole
 	tenants     map[string]*Tenant
 	parentCache map[string]*Tenant
 	m           sync.RWMutex
@@ -220,32 +230,61 @@ func NewAuthorizer() *Authorizer {
 		roles:       NewRoleDAG(),
 		tenants:     make(map[string]*Tenant),
 		parentCache: make(map[string]*Tenant),
+		userRoleMap: make(map[string]map[string][]UserRole),
 	}
 }
 
-func (a *Authorizer) AddRole(role ...*Role) {
+func (a *Authorizer) AddRoles(role ...*Role) {
 	a.roles.AddRole(role...)
+}
+
+func (a *Authorizer) AddRole(role *Role) *Role {
+	a.AddRoles(role)
+	return role
+}
+
+func (a *Authorizer) GetRole(val string) (*Role, bool) {
+	role, ok := a.roles.roles[val]
+	return role, ok
 }
 
 func (a *Authorizer) AddChildRole(parent string, child ...string) error {
 	return a.roles.AddChildRole(parent, child...)
 }
 
-func (a *Authorizer) AddTenant(tenants ...*Tenant) {
+func (a *Authorizer) AddTenants(tenants ...*Tenant) {
+	for _, tenant := range tenants {
+		a.AddTenant(tenant)
+	}
+}
+
+func (a *Authorizer) AddTenant(tenant *Tenant) *Tenant {
 	a.m.Lock()
 	defer a.m.Unlock()
-	for _, tenant := range tenants {
-		a.tenants[tenant.ID] = tenant
-		for _, child := range tenant.ChildTenants {
-			a.parentCache[child.ID] = tenant
-		}
+	a.tenants[tenant.ID] = tenant
+	for _, child := range tenant.ChildTenants {
+		a.parentCache[child.ID] = tenant
 	}
+	return tenant
+}
+
+func (a *Authorizer) GetTenant(id string) (*Tenant, bool) {
+	a.m.Lock()
+	defer a.m.Unlock()
+	tenant, ok := a.tenants[id]
+	return tenant, ok
 }
 
 func (a *Authorizer) AddUserRole(userRole ...UserRole) {
 	a.m.Lock()
 	defer a.m.Unlock()
-	a.userRoles = append(a.userRoles, userRole...)
+	for _, ur := range userRole {
+		a.userRoles = append(a.userRoles, ur)
+		if a.userRoleMap[ur.User] == nil {
+			a.userRoleMap[ur.User] = make(map[string][]UserRole)
+		}
+		a.userRoleMap[ur.User][ur.Tenant] = append(a.userRoleMap[ur.User][ur.Tenant], ur)
+	}
 }
 
 var (
@@ -259,9 +298,9 @@ func (a *Authorizer) resolveUserRoles(userID, tenantID, namespace, scopeName str
 	if !exists {
 		return nil, fmt.Errorf("invalid tenant: %v", tenantID)
 	}
-	checkedTenants := make(map[string]bool)
 	globalPermissions := globalPermissionsPool.Get()
 	scopedPermissions := scopedPermissionsPool.Get()
+	checkedTenants := checkedTenantsPool.Get()
 	clear(scopedPermissions)
 	clear(globalPermissions)
 	clear(checkedTenants)
