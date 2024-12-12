@@ -4,8 +4,6 @@ import (
 	"fmt"
 	"sync"
 
-	"golang.org/x/exp/maps"
-
 	"github.com/oarkflow/permission/utils"
 )
 
@@ -30,7 +28,7 @@ type Request struct {
 type Authorizer struct {
 	roleDAG     *RoleDAG
 	userRoles   []PrincipalRole
-	userRoleMap map[string]map[string][]PrincipalRole // Map[userID][tenantID][]PrincipalRole
+	userRoleMap map[string]map[string][]PrincipalRole
 	tenants     map[string]*Tenant
 	namespaces  map[string]*Namespace
 	scopes      map[string]*Scope
@@ -132,25 +130,27 @@ func (a *Authorizer) resolvePrincipalRoles(userID, tenantID, namespace, scopeNam
 	return nil, fmt.Errorf("no roleDAG or permissions found")
 }
 
-var tenantPool = utils.NewSlicePool[*Tenant](10)
-
 func (a *Authorizer) Authorize(request Request) bool {
-	targetTenants := tenantPool.Get()
-	clear(targetTenants)
-	defer func() {
-		tenantPool.Put(targetTenants)
-	}()
+	var tenantBuffer [10]*Tenant
+	var targetTenants []*Tenant
+	tenantCount := 0
 	if request.Tenant == "" {
-		targetTenants = a.findPrincipalTenants(request.Principal)
-		if len(targetTenants) == 0 {
-			return false
+		tenants := a.findPrincipalTenants(request.Principal)
+		tenantCount = len(tenants)
+		if tenantCount <= len(tenantBuffer) {
+			copy(tenantBuffer[:], tenants)
+			targetTenants = tenantBuffer[:tenantCount]
+		} else {
+			targetTenants = tenants
 		}
 	} else {
 		tenant, exists := a.tenants[request.Tenant]
 		if !exists {
 			return false
 		}
-		targetTenants = []*Tenant{tenant}
+		tenantBuffer[0] = tenant
+		tenantCount = 1
+		targetTenants = tenantBuffer[:tenantCount]
 	}
 	for _, tenant := range targetTenants {
 		namespace := request.Namespace
@@ -158,9 +158,12 @@ func (a *Authorizer) Authorize(request Request) bool {
 			if tenant.DefaultNS != "" {
 				namespace = tenant.DefaultNS
 			} else if len(tenant.Namespaces) == 1 {
-				namespace = maps.Keys(tenant.Namespaces)[0]
+				for ns := range tenant.Namespaces {
+					namespace = ns
+					break
+				}
 			} else {
-				return false
+				continue
 			}
 		}
 		ns, exists := tenant.Namespaces[namespace]
