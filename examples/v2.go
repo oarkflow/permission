@@ -12,7 +12,7 @@ func main() {
 
 	adminRole := v2.NewRole("Admin")
 	adminRole.AddPermission(
-		v2.NewPermission("backend", "user", "create"),
+		v2.NewPermission("backend", "user/:id", "create"),
 		v2.NewPermission("backend", "user", "delete"),
 	)
 
@@ -52,7 +52,7 @@ func main() {
 		Principal: "user1",
 		Tenant:    "tenant-a",
 		Scope:     "default-scope",
-		Resource:  "user",
+		Resource:  "user/1",
 		Action:    "create",
 	}
 

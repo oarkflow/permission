@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"sync"
 
+	"golang.org/x/exp/maps"
+
 	"github.com/oarkflow/permission/utils"
 )
 
@@ -384,21 +386,6 @@ func (a *Authorizer) resolvePrincipalRoles(userID, tenantID, namespace, scopeNam
 	return nil, fmt.Errorf("no roleDAG or permissions found")
 }
 
-func (a *Authorizer) isChildTenant(parentID, childID string) bool {
-	parent, exists := a.tenants[parentID]
-	if !exists {
-		return false
-	}
-	_, exists = parent.ChildTenants[childID]
-	return exists
-}
-
-func (a *Authorizer) findParentTenant(child *Tenant) *Tenant {
-	a.m.RLock()
-	defer a.m.RUnlock()
-	return a.parentCache[child.ID]
-}
-
 var tenantPool = utils.NewSlicePool[*Tenant](10)
 
 func (a *Authorizer) Authorize(request Request) bool {
@@ -425,7 +412,7 @@ func (a *Authorizer) Authorize(request Request) bool {
 			if tenant.DefaultNS != "" {
 				namespace = tenant.DefaultNS
 			} else if len(tenant.Namespaces) == 1 {
-				namespace = tenant.DefaultNS
+				namespace = maps.Keys(tenant.Namespaces)[0]
 			} else {
 				return false
 			}
