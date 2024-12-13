@@ -194,19 +194,21 @@ func (a *Authorizer) isScopeValidForNamespace(ns *Namespace, scopeName string) b
 func (a *Authorizer) findPrincipalTenants(userID string) []*Tenant {
 	tenantSet := make(map[string]*Tenant)
 	for _, userRole := range a.userRoles {
-		if userRole.Principal == userID {
+		if userRole.Principal == userID && userRole.Tenant != "" {
 			if tenant, exists := a.tenants[userRole.Tenant]; exists {
 				tenantSet[userRole.Tenant] = tenant
 			}
 		}
 	}
-	tenantList := make([]*Tenant, 0, len(tenantSet))
+
+	// Pre-allocate the slice with the exact length of the map
+	tenantList := make([]*Tenant, len(tenantSet))
 	i := 0
 	for _, tenant := range tenantSet {
-		tenantList[i] = tenant
+		tenantList[i] = tenant // Populate the pre-allocated slice directly
 		i++
 	}
-	return tenantList[:i]
+	return tenantList
 }
 
 func matchPermission(permission string, request Request) bool {
