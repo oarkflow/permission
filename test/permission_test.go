@@ -21,7 +21,7 @@ func BenchmarkV2(b *testing.B) {
 	authorizer.AddTenants(rootTenant, childTenant)
 	coder, _, _, _ := v2myRoles(authorizer)
 
-	authorizer.AddPrincipalRole(v2.PrincipalRole{
+	authorizer.AddPrincipalRole(&v2.PrincipalRole{
 		Principal: "principalA",
 		Tenant:    rootTenant.ID,
 		Role:      coder.Name,

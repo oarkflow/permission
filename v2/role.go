@@ -114,7 +114,7 @@ func (dag *RoleDAG) checkCircularDependency(parent string, children ...string) e
 	return nil
 }
 
-// Update ResolvePermissions to account for role expiry
+// ResolvePermissions to account for role expiry
 func (dag *RoleDAG) ResolvePermissions(roleName string) map[string]struct{} {
 	dag.mu.RLock()
 	if permissions, found := dag.resolved[roleName]; found {
@@ -135,7 +135,7 @@ func (dag *RoleDAG) ResolvePermissions(roleName string) map[string]struct{} {
 		}
 		visited[current] = true
 		role, exists := dag.roles[current]
-		if !exists || role.IsExpired() {
+		if !exists {
 			continue
 		}
 		for perm := range role.Permissions {

@@ -2,7 +2,6 @@ package v2
 
 import (
 	"sync"
-	"time"
 )
 
 type Permission struct {
@@ -18,40 +17,11 @@ func NewPermission(category, resource, method string) *Permission {
 type Role struct {
 	Name        string
 	Permissions map[string]struct{}
-	Expiry      *time.Time // Optional expiry time for the role
 	m           sync.RWMutex
 }
 
-func NewRole(name string, expiry ...*time.Time) *Role {
-	var exp *time.Time
-	if len(expiry) > 0 {
-		exp = expiry[0]
-	}
-	return &Role{Name: name, Permissions: make(map[string]struct{}), Expiry: exp}
-}
-
-// IsExpired checks if the role has expired.
-func (r *Role) IsExpired() bool {
-	r.m.RLock()
-	defer r.m.RUnlock()
-	if r.Expiry == nil {
-		return false // Role does not expire
-	}
-	return time.Now().After(*r.Expiry)
-}
-
-// SetExpiry sets the expiry time for the role.
-func (r *Role) SetExpiry(expiry time.Time) {
-	r.m.Lock()
-	defer r.m.Unlock()
-	r.Expiry = &expiry
-}
-
-// ClearExpiry clears the expiry time for the role, making it permanent.
-func (r *Role) ClearExpiry() {
-	r.m.Lock()
-	defer r.m.Unlock()
-	r.Expiry = nil
+func NewRole(name string) *Role {
+	return &Role{Name: name, Permissions: make(map[string]struct{})}
 }
 
 type Principal struct {

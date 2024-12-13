@@ -1,7 +1,9 @@
 package v2
 
 import (
+	"context"
 	"fmt"
+	"log/slog"
 	"sync"
 	"time"
 
@@ -14,24 +16,42 @@ type PrincipalRole struct {
 	Scope             string
 	Namespace         string
 	Role              string
-	Expiry            *time.Time // Optional expiry time for the user role
+	Expiry            *time.Time
 	ManageChildTenant bool
 }
 
-// IsExpired checks if the user role has expired.
 func (pr *PrincipalRole) IsExpired() bool {
 	if pr.Expiry == nil {
-		return false // User role does not expire
+		return false
 	}
 	return time.Now().After(*pr.Expiry)
 }
 
-// SetExpiry sets the expiry time for the user role.
-func (pr *PrincipalRole) SetExpiry(expiry time.Time) {
+func (pr *PrincipalRole) SetExpiry(expiry time.Time) error {
+	if expiry.Before(time.Now()) {
+		return fmt.Errorf("expiry time has to be in future")
+	}
 	pr.Expiry = &expiry
+	return nil
 }
 
-// ClearExpiry clears the expiry time for the user role, making it permanent.
+func (pr *PrincipalRole) SetExpiryDuration(dur any) error {
+	var duration time.Duration
+	var err error
+	switch dur := dur.(type) {
+	case string:
+		duration, err = time.ParseDuration(dur)
+		if err != nil {
+			return nil
+		}
+	case time.Duration:
+		duration = dur
+	}
+	expiry := time.Now().Add(duration)
+	pr.Expiry = &expiry
+	return nil
+}
+
 func (pr *PrincipalRole) ClearExpiry() {
 	pr.Expiry = nil
 }
@@ -47,18 +67,23 @@ type Request struct {
 
 type Authorizer struct {
 	roleDAG     *RoleDAG
-	userRoles   []PrincipalRole
-	userRoleMap map[string]map[string][]PrincipalRole
+	userRoles   []*PrincipalRole
+	userRoleMap map[string]map[string][]*PrincipalRole
 	tenants     map[string]*Tenant
 	namespaces  map[string]*Namespace
 	scopes      map[string]*Scope
 	principals  map[string]*Principal
 	permissions map[string]*Permission
 	parentCache map[string]*Tenant
+	auditLog    *slog.Logger
 	m           sync.RWMutex
 }
 
-func NewAuthorizer() *Authorizer {
+func NewAuthorizer(auditLog ...*slog.Logger) *Authorizer {
+	var logger *slog.Logger
+	if len(auditLog) > 0 {
+		logger = auditLog[0]
+	}
 	return &Authorizer{
 		roleDAG:     NewRoleDAG(),
 		tenants:     make(map[string]*Tenant),
@@ -66,20 +91,78 @@ func NewAuthorizer() *Authorizer {
 		namespaces:  make(map[string]*Namespace),
 		scopes:      make(map[string]*Scope),
 		principals:  make(map[string]*Principal),
-		userRoleMap: make(map[string]map[string][]PrincipalRole),
+		userRoleMap: make(map[string]map[string][]*PrincipalRole),
+		auditLog:    logger,
 	}
 }
 
-func (a *Authorizer) AddPrincipalRole(userRole ...PrincipalRole) {
+func (a *Authorizer) AddPrincipalRole(userRole ...*PrincipalRole) {
 	a.m.Lock()
 	defer a.m.Unlock()
 	for _, ur := range userRole {
 		a.userRoles = append(a.userRoles, ur)
 		if a.userRoleMap[ur.Principal] == nil {
-			a.userRoleMap[ur.Principal] = make(map[string][]PrincipalRole)
+			a.userRoleMap[ur.Principal] = make(map[string][]*PrincipalRole)
 		}
 		a.userRoleMap[ur.Principal][ur.Tenant] = append(a.userRoleMap[ur.Principal][ur.Tenant], ur)
 	}
+}
+
+func (a *Authorizer) RemovePrincipalRole(target PrincipalRole) error {
+	a.m.Lock()
+	defer a.m.Unlock()
+	var updatedRoles []*PrincipalRole
+	var rolesRemoved bool
+	matches := func(pr *PrincipalRole) bool {
+		if target.Principal != "" && pr.Principal != target.Principal {
+			return false
+		}
+		if target.Tenant != "" && pr.Tenant != target.Tenant {
+			return false
+		}
+		if target.Namespace != "" && pr.Namespace != target.Namespace {
+			return false
+		}
+		if target.Scope != "" && pr.Scope != target.Scope {
+			return false
+		}
+		if target.Role != "" && pr.Role != target.Role {
+			return false
+		}
+		return true
+	}
+	for _, ur := range a.userRoles {
+		if matches(ur) {
+			rolesRemoved = true
+			continue
+		}
+		updatedRoles = append(updatedRoles, ur)
+	}
+	if !rolesRemoved {
+		return fmt.Errorf("no matching roles found for the provided criteria")
+	}
+	a.userRoles = updatedRoles
+	for principal, tenants := range a.userRoleMap {
+		for tenantID, roles := range tenants {
+			var updatedTenantRoles []*PrincipalRole
+			for _, ur := range roles {
+				if matches(ur) {
+					continue
+				}
+				updatedTenantRoles = append(updatedTenantRoles, ur)
+			}
+			if len(updatedTenantRoles) == 0 {
+
+				delete(tenants, tenantID)
+			} else {
+				tenants[tenantID] = updatedTenantRoles
+			}
+		}
+		if len(tenants) == 0 {
+			delete(a.userRoleMap, principal)
+		}
+	}
+	return nil
 }
 
 var (
@@ -114,7 +197,6 @@ func (a *Authorizer) resolvePrincipalRoles(userID, tenantID, namespace, scopeNam
 			if userRole.Principal != userID || userRole.Tenant != current.ID {
 				continue
 			}
-			// Skip expired user roles
 			if userRole.IsExpired() {
 				continue
 			}
@@ -154,6 +236,31 @@ func (a *Authorizer) resolvePrincipalRoles(userID, tenantID, namespace, scopeNam
 	return nil, fmt.Errorf("no roleDAG or permissions found")
 }
 
+func (a *Authorizer) Log(level slog.Level, request Request, msg string) {
+	if a.auditLog != nil {
+		args := []any{slog.Time("timestamp", time.Now())}
+		if request.Principal != "" {
+			args = append(args, slog.String("principal", request.Principal))
+		}
+		if request.Tenant != "" {
+			args = append(args, slog.String("tenant", request.Tenant))
+		}
+		if request.Namespace != "" {
+			args = append(args, slog.String("namespace", request.Namespace))
+		}
+		if request.Scope != "" {
+			args = append(args, slog.String("scope", request.Scope))
+		}
+		if request.Resource != "" {
+			args = append(args, slog.String("resource", request.Resource))
+		}
+		if request.Action != "" {
+			args = append(args, slog.String("action", request.Action))
+		}
+		a.auditLog.Log(context.Background(), level, msg, args...)
+	}
+}
+
 func (a *Authorizer) Authorize(request Request) bool {
 	var tenantBuffer [10]*Tenant
 	var targetTenants []*Tenant
@@ -170,6 +277,7 @@ func (a *Authorizer) Authorize(request Request) bool {
 	} else {
 		tenant, exists := a.tenants[request.Tenant]
 		if !exists {
+			a.Log(slog.LevelWarn, request, "Failed authorization due to invalid tenant")
 			return false
 		}
 		tenantBuffer[0] = tenant
@@ -199,14 +307,17 @@ func (a *Authorizer) Authorize(request Request) bool {
 		}
 		permissions, err := a.resolvePrincipalRoles(request.Principal, tenant.ID, namespace, request.Scope)
 		if err != nil {
+			a.Log(slog.LevelWarn, request, "Failed to resolve roles for authorization")
 			continue
 		}
 		for permission := range permissions {
 			if matchPermission(permission, request) {
+				a.Log(slog.LevelWarn, request, "Authorization granted")
 				return true
 			}
 		}
 	}
+	a.Log(slog.LevelWarn, request, "Authorization failed")
 	return false
 }
 
@@ -224,12 +335,10 @@ func (a *Authorizer) findPrincipalTenants(userID string) []*Tenant {
 			}
 		}
 	}
-
-	// Pre-allocate the slice with the exact length of the map
 	tenantList := make([]*Tenant, len(tenantSet))
 	i := 0
 	for _, tenant := range tenantSet {
-		tenantList[i] = tenant // Populate the pre-allocated slice directly
+		tenantList[i] = tenant
 		i++
 	}
 	return tenantList
