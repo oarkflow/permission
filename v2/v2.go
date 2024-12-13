@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log/slog"
+	"slices"
 	"sync"
 	"time"
 
@@ -168,7 +169,7 @@ var (
 	checkedTenantsPool    = utils.New(func() map[string]bool { return make(map[string]bool) })
 )
 
-func (a *Authorizer) resolvePrincipalRoles(userID, tenantID, namespace, scopeName string) (map[string]struct{}, error) {
+func (a *Authorizer) resolvePrincipalPermissions(userID, tenantID, namespace, scopeName string) (map[string]struct{}, error) {
 	tenant, exists := a.tenants[tenantID]
 	if !exists {
 		return nil, fmt.Errorf("invalid tenant: %v", tenantID)
@@ -233,6 +234,59 @@ func (a *Authorizer) resolvePrincipalRoles(userID, tenantID, namespace, scopeNam
 	return nil, fmt.Errorf("no roleDAG or permissions found")
 }
 
+func (a *Authorizer) resolvePrincipalRoles(userID, tenantID, namespace string) (map[string]struct{}, error) {
+	tenant, exists := a.tenants[tenantID]
+	if !exists {
+		return nil, fmt.Errorf("invalid tenant: %v", tenantID)
+	}
+	scopedPermissions := scopedPermissionsPool.Get()
+	checkedTenants := checkedTenantsPool.Get()
+	clear(scopedPermissions)
+	clear(checkedTenants)
+	defer func() {
+		scopedPermissionsPool.Put(scopedPermissions)
+		checkedTenantsPool.Put(checkedTenants)
+	}()
+	var traverse func(current *Tenant) error
+	traverse = func(current *Tenant) error {
+		if checkedTenants[current.ID] {
+			return nil
+		}
+		checkedTenants[current.ID] = true
+		for _, userRole := range a.userRoles {
+			if userRole.Principal != userID || userRole.Tenant != current.ID {
+				continue
+			}
+			if userRole.IsExpired() {
+				continue
+			}
+			if (userRole.Namespace == "" || userRole.Namespace == namespace) && userRole.Role != "" {
+				scopedPermissions[userRole.Role] = struct{}{}
+				for role := range a.roleDAG.ResolveChildRoles(userRole.Role) {
+					scopedPermissions[role] = struct{}{}
+				}
+			}
+		}
+		for _, userRole := range a.userRoles {
+			if userRole.Principal == userID && userRole.Tenant == current.ID && userRole.ManageChildTenant {
+				for _, child := range current.ChildTenants {
+					if err := traverse(child); err != nil {
+						return err
+					}
+				}
+			}
+		}
+		return nil
+	}
+	if err := traverse(tenant); err != nil {
+		return nil, err
+	}
+	if len(scopedPermissions) > 0 {
+		return scopedPermissions, nil
+	}
+	return nil, fmt.Errorf("no roleDAG or permissions found")
+}
+
 func (a *Authorizer) Log(level slog.Level, request Request, msg string) {
 	if a.auditLog != nil {
 		args := []any{slog.Time("timestamp", time.Now())}
@@ -256,6 +310,66 @@ func (a *Authorizer) Log(level slog.Level, request Request, msg string) {
 		}
 		a.auditLog.Log(context.Background(), level, msg, args...)
 	}
+}
+
+func (a *Authorizer) Can(request Request, roles ...string) bool {
+	var tenantBuffer [10]*Tenant
+	var targetTenants []*Tenant
+	tenantCount := 0
+	if request.Tenant == "" {
+		tenants := a.findPrincipalTenants(request.Principal)
+		tenantCount = len(tenants)
+		if tenantCount <= len(tenantBuffer) {
+			copy(tenantBuffer[:], tenants)
+			targetTenants = tenantBuffer[:tenantCount]
+		} else {
+			targetTenants = tenants
+		}
+	} else {
+		tenant, exists := a.tenants[request.Tenant]
+		if !exists {
+			a.Log(slog.LevelWarn, request, "Failed authorization due to invalid tenant")
+			return false
+		}
+		tenantBuffer[0] = tenant
+		tenantCount = 1
+		targetTenants = tenantBuffer[:tenantCount]
+	}
+	for _, tenant := range targetTenants {
+		namespace := request.Namespace
+		if namespace == "" {
+			if tenant.DefaultNS != "" {
+				namespace = tenant.DefaultNS
+			} else if len(tenant.Namespaces) == 1 {
+				for ns := range tenant.Namespaces {
+					namespace = ns
+					break
+				}
+			} else {
+				continue
+			}
+		}
+		ns, exists := tenant.Namespaces[namespace]
+		if !exists {
+			continue
+		}
+		if request.Scope != "" && !a.isScopeValidForNamespace(ns, request.Scope) {
+			continue
+		}
+		resolvedRoles, err := a.resolvePrincipalRoles(request.Principal, tenant.ID, namespace)
+		if err != nil {
+			a.Log(slog.LevelWarn, request, "Failed to resolve roles for authorization")
+			continue
+		}
+		for role := range resolvedRoles {
+			if slices.Contains(roles, role) {
+				a.Log(slog.LevelWarn, request, "Authorization granted")
+				return true
+			}
+		}
+	}
+	a.Log(slog.LevelWarn, request, "Authorization failed")
+	return false
 }
 
 func (a *Authorizer) Authorize(request Request) bool {
@@ -302,9 +416,9 @@ func (a *Authorizer) Authorize(request Request) bool {
 		if request.Scope != "" && !a.isScopeValidForNamespace(ns, request.Scope) {
 			continue
 		}
-		permissions, err := a.resolvePrincipalRoles(request.Principal, tenant.ID, namespace, request.Scope)
+		permissions, err := a.resolvePrincipalPermissions(request.Principal, tenant.ID, namespace, request.Scope)
 		if err != nil {
-			a.Log(slog.LevelWarn, request, "Failed to resolve roles for authorization")
+			a.Log(slog.LevelWarn, request, "Failed to resolve permissions for authorization")
 			continue
 		}
 		for permission := range permissions {

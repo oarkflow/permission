@@ -146,3 +146,34 @@ func (dag *RoleDAG) ResolvePermissions(roleName string) map[string]struct{} {
 	dag.resolved[roleName] = result
 	return result
 }
+
+// ResolveChildRoles to account for role expiry
+func (dag *RoleDAG) ResolveChildRoles(roleName string) map[string]struct{} {
+	dag.mu.RLock()
+	if permissions, found := dag.resolved[roleName]; found {
+		dag.mu.RUnlock()
+		return permissions
+	}
+	dag.mu.RUnlock()
+	dag.mu.Lock()
+	defer dag.mu.Unlock()
+	visited := make(map[string]bool)
+	queue := []string{roleName}
+	result := make(map[string]struct{})
+	for len(queue) > 0 {
+		current := queue[0]
+		queue = queue[1:]
+		if visited[current] {
+			continue
+		}
+		visited[current] = true
+		role, exists := dag.roles[current]
+		if !exists {
+			continue
+		}
+		result[role.Name] = struct{}{}
+		queue = append(queue, dag.edges[current]...)
+	}
+	dag.resolved[roleName] = result
+	return result
+}
