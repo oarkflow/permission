@@ -74,10 +74,6 @@ type Authorizer struct {
 	userRoles   []*PrincipalRole
 	userRoleMap map[string]map[string][]*PrincipalRole
 	tenants     map[string]*Tenant
-	namespaces  map[string]*Namespace
-	scopes      map[string]*Scope
-	principals  map[string]*Principal
-	permissions map[string]*Permission
 	parentCache map[string]*Tenant
 	auditLog    *slog.Logger
 	m           sync.RWMutex
@@ -92,9 +88,6 @@ func NewAuthorizer(auditLog ...*slog.Logger) *Authorizer {
 		roleDAG:     NewRoleDAG(),
 		tenants:     make(map[string]*Tenant),
 		parentCache: make(map[string]*Tenant),
-		namespaces:  make(map[string]*Namespace),
-		scopes:      make(map[string]*Scope),
-		principals:  make(map[string]*Principal),
 		userRoleMap: make(map[string]map[string][]*PrincipalRole),
 		auditLog:    logger,
 	}
@@ -113,9 +106,7 @@ func (a *Authorizer) AddPrincipalRole(userRole ...*PrincipalRole) {
 }
 
 func (a *Authorizer) RemovePrincipalRole(target PrincipalRole) error {
-	a.m.Lock()
-	defer a.m.Unlock()
-	var updatedRoles []*PrincipalRole
+	updatedRoles := make([]*PrincipalRole, len(a.userRoles))
 	var rolesRemoved bool
 	matches := func(pr *PrincipalRole) bool {
 		if target.Principal != "" && pr.Principal != target.Principal {
@@ -135,13 +126,16 @@ func (a *Authorizer) RemovePrincipalRole(target PrincipalRole) error {
 		}
 		return true
 	}
-	for _, ur := range a.userRoles {
+	j := 0
+	for i, ur := range a.userRoles {
 		if matches(ur) {
 			rolesRemoved = true
 			continue
 		}
-		updatedRoles = append(updatedRoles, ur)
+		j++
+		updatedRoles[i] = ur
 	}
+	updatedRoles = updatedRoles[:j]
 	if !rolesRemoved {
 		return fmt.Errorf("no matching roles found for the provided criteria")
 	}
@@ -330,7 +324,7 @@ func (a *Authorizer) isScopeValidForNamespace(ns *Namespace, scopeName string) b
 }
 
 func (a *Authorizer) findPrincipalTenants(userID string) []*Tenant {
-	tenantSet := make(map[string]*Tenant)
+	tenantSet := make(map[string]*Tenant, len(a.userRoles))
 	for _, userRole := range a.userRoles {
 		if userRole.Principal == userID && userRole.Tenant != "" {
 			if tenant, exists := a.tenants[userRole.Tenant]; exists {

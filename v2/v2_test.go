@@ -135,7 +135,7 @@ func setupAuthorizer() *Authorizer {
 		panic(err)
 	}
 	authorizer.AddTenant(tenant)
-	authorizer.AddPrincipalRole(PrincipalRole{
+	authorizer.AddPrincipalRole(&PrincipalRole{
 		Principal: "user1",
 		Tenant:    "tenant1",
 		Role:      "role1",
