@@ -3,6 +3,7 @@ package v2
 import (
 	"fmt"
 	"sync"
+	"time"
 
 	"github.com/oarkflow/permission/utils"
 )
@@ -13,7 +14,26 @@ type PrincipalRole struct {
 	Scope             string
 	Namespace         string
 	Role              string
+	Expiry            *time.Time // Optional expiry time for the user role
 	ManageChildTenant bool
+}
+
+// IsExpired checks if the user role has expired.
+func (pr *PrincipalRole) IsExpired() bool {
+	if pr.Expiry == nil {
+		return false // User role does not expire
+	}
+	return time.Now().After(*pr.Expiry)
+}
+
+// SetExpiry sets the expiry time for the user role.
+func (pr *PrincipalRole) SetExpiry(expiry time.Time) {
+	pr.Expiry = &expiry
+}
+
+// ClearExpiry clears the expiry time for the user role, making it permanent.
+func (pr *PrincipalRole) ClearExpiry() {
+	pr.Expiry = nil
 }
 
 type Request struct {
@@ -92,6 +112,10 @@ func (a *Authorizer) resolvePrincipalRoles(userID, tenantID, namespace, scopeNam
 		checkedTenants[current.ID] = true
 		for _, userRole := range a.userRoles {
 			if userRole.Principal != userID || userRole.Tenant != current.ID {
+				continue
+			}
+			// Skip expired user roles
+			if userRole.IsExpired() {
 				continue
 			}
 			if userRole.Namespace == "" || userRole.Namespace == namespace {
