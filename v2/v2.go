@@ -65,6 +65,10 @@ type Request struct {
 	Action    string
 }
 
+func (p Request) String() string {
+	return p.Resource + " " + p.Action
+}
+
 type Authorizer struct {
 	roleDAG     *RoleDAG
 	userRoles   []*PrincipalRole
@@ -152,7 +156,6 @@ func (a *Authorizer) RemovePrincipalRole(target PrincipalRole) error {
 				updatedTenantRoles = append(updatedTenantRoles, ur)
 			}
 			if len(updatedTenantRoles) == 0 {
-
 				delete(tenants, tenantID)
 			} else {
 				tenants[tenantID] = updatedTenantRoles
@@ -348,6 +351,6 @@ func matchPermission(permission string, request Request) bool {
 	if request.Resource == "" && request.Action == "" {
 		return false
 	}
-	requestToCheck := request.Resource + " " + request.Action
+	requestToCheck := request.String()
 	return utils.MatchResource(requestToCheck, permission)
 }
