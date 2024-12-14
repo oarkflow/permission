@@ -57,7 +57,7 @@ func main() {
 	request1 := v2.Request{
 		Principal: "user1",
 		Tenant:    "tenant-a",
-		Resource:  "post",
+		Resource:  "user/1",
 		Action:    "create",
 	}
 
@@ -79,7 +79,6 @@ func main() {
 		Action:    "publish",
 	}
 
-	fmt.Println("Can 1:", auth.Can(request1, "Editor"))
 	fmt.Println("Request 1:", auth.Authorize(request1))
 	fmt.Println("Request 2:", auth.Authorize(request2))
 	fmt.Println("Request 3:", auth.Authorize(request3))

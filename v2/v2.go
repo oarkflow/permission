@@ -317,7 +317,10 @@ func (a *Authorizer) Log(level slog.Level, request Request, msg string) {
 	}
 }
 
-func (a *Authorizer) Can(request Request, roles ...string) bool {
+func (a *Authorizer) findTargetTenants(request Request) ([]*Tenant, bool) {
+	if request.Tenant == "" && a.defaultTenant != "" {
+		request.Tenant = a.defaultTenant
+	}
 	var tenantBuffer [10]*Tenant
 	var targetTenants []*Tenant
 	tenantCount := 0
@@ -333,12 +336,20 @@ func (a *Authorizer) Can(request Request, roles ...string) bool {
 	} else {
 		tenant, exists := a.tenants[request.Tenant]
 		if !exists {
-			a.Log(slog.LevelWarn, request, "Failed authorization due to invalid tenant")
-			return false
+			return nil, false
 		}
 		tenantBuffer[0] = tenant
 		tenantCount = 1
 		targetTenants = tenantBuffer[:tenantCount]
+	}
+	return targetTenants, true
+}
+
+func (a *Authorizer) Can(request Request, roles ...string) bool {
+	targetTenants, isValidTenant := a.findTargetTenants(request)
+	if !isValidTenant {
+		a.Log(slog.LevelWarn, request, "Failed authorization due to invalid tenant")
+		return false
 	}
 	for _, tenant := range targetTenants {
 		namespace := request.Namespace
@@ -378,27 +389,10 @@ func (a *Authorizer) Can(request Request, roles ...string) bool {
 }
 
 func (a *Authorizer) Authorize(request Request) bool {
-	var tenantBuffer [10]*Tenant
-	var targetTenants []*Tenant
-	tenantCount := 0
-	if request.Tenant == "" {
-		tenants := a.findPrincipalTenants(request.Principal)
-		tenantCount = len(tenants)
-		if tenantCount <= len(tenantBuffer) {
-			copy(tenantBuffer[:], tenants)
-			targetTenants = tenantBuffer[:tenantCount]
-		} else {
-			targetTenants = tenants
-		}
-	} else {
-		tenant, exists := a.tenants[request.Tenant]
-		if !exists {
-			a.Log(slog.LevelWarn, request, "Failed authorization due to invalid tenant")
-			return false
-		}
-		tenantBuffer[0] = tenant
-		tenantCount = 1
-		targetTenants = tenantBuffer[:tenantCount]
+	targetTenants, isValidTenant := a.findTargetTenants(request)
+	if !isValidTenant {
+		a.Log(slog.LevelWarn, request, "Failed authorization due to invalid tenant")
+		return false
 	}
 	for _, tenant := range targetTenants {
 		namespace := request.Namespace
@@ -447,7 +441,9 @@ func (a *Authorizer) findPrincipalTenants(userID string) []*Tenant {
 	for _, userRole := range a.userRoles {
 		if userRole.Principal == userID && userRole.Tenant != "" {
 			if tenant, exists := a.tenants[userRole.Tenant]; exists {
-				tenantSet[userRole.Tenant] = tenant
+				if tenant.Status == TenantStatusActive {
+					tenantSet[userRole.Tenant] = tenant
+				}
 			}
 		}
 	}
