@@ -174,6 +174,13 @@ var (
 	checkedTenantsPool    = utils.New(func() map[string]bool { return make(map[string]bool) })
 )
 
+func (a *Authorizer) GetDefaultTenant() (*Tenant, bool) {
+	if a.defaultTenant != "" {
+		return a.GetTenant(a.defaultTenant)
+	}
+	return nil, false
+}
+
 func (a *Authorizer) resolvePrincipalPermissions(userID, tenantID, namespace, scopeName string) (map[string]struct{}, error) {
 	tenant, exists := a.tenants[tenantID]
 	if !exists {
