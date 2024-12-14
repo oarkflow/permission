@@ -71,13 +71,14 @@ func (p Request) String() string {
 }
 
 type Authorizer struct {
-	roleDAG     *RoleDAG
-	userRoles   []*PrincipalRole
-	userRoleMap map[string]map[string][]*PrincipalRole
-	tenants     map[string]*Tenant
-	parentCache map[string]*Tenant
-	auditLog    *slog.Logger
-	m           sync.RWMutex
+	roleDAG       *RoleDAG
+	userRoles     []*PrincipalRole
+	userRoleMap   map[string]map[string][]*PrincipalRole
+	tenants       map[string]*Tenant
+	parentCache   map[string]*Tenant
+	defaultTenant string
+	auditLog      *slog.Logger
+	m             sync.RWMutex
 }
 
 func NewAuthorizer(auditLog ...*slog.Logger) *Authorizer {
@@ -92,6 +93,10 @@ func NewAuthorizer(auditLog ...*slog.Logger) *Authorizer {
 		userRoleMap: make(map[string]map[string][]*PrincipalRole),
 		auditLog:    logger,
 	}
+}
+
+func (a *Authorizer) SetDefaultTenant(tenant string) {
+	a.defaultTenant = tenant
 }
 
 func (a *Authorizer) AddPrincipalRole(userRole ...*PrincipalRole) {
