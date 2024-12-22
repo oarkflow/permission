@@ -251,12 +251,12 @@ func (a *Authorizer) resolvePrincipalRoles(userID, tenantID, namespace string) (
 	if !exists {
 		return nil, fmt.Errorf("invalid tenant: %v", tenantID)
 	}
-	scopedPermissions := scopedPermissionsPool.Get()
+	scopedRoles := scopedPermissionsPool.Get()
 	checkedTenants := checkedTenantsPool.Get()
-	clear(scopedPermissions)
+	clear(scopedRoles)
 	clear(checkedTenants)
 	defer func() {
-		scopedPermissionsPool.Put(scopedPermissions)
+		scopedPermissionsPool.Put(scopedRoles)
 		checkedTenantsPool.Put(checkedTenants)
 	}()
 	var traverse func(current *Tenant) error
@@ -273,9 +273,9 @@ func (a *Authorizer) resolvePrincipalRoles(userID, tenantID, namespace string) (
 				continue
 			}
 			if (userRole.Namespace == "" || userRole.Namespace == namespace) && userRole.Role != "" {
-				scopedPermissions[userRole.Role] = struct{}{}
+				scopedRoles[userRole.Role] = struct{}{}
 				for role := range a.roleDAG.ResolveChildRoles(userRole.Role) {
-					scopedPermissions[role] = struct{}{}
+					scopedRoles[role] = struct{}{}
 				}
 			}
 		}
@@ -293,8 +293,8 @@ func (a *Authorizer) resolvePrincipalRoles(userID, tenantID, namespace string) (
 	if err := traverse(tenant); err != nil {
 		return nil, err
 	}
-	if len(scopedPermissions) > 0 {
-		return scopedPermissions, nil
+	if len(scopedRoles) > 0 {
+		return scopedRoles, nil
 	}
 	return nil, fmt.Errorf("no roleDAG or permissions found")
 }
