@@ -86,9 +86,16 @@ func main() {
 		Action:    "publish",
 	}
 
+	request5 := v2.Request{
+		Principal: "user1",
+		Resource:  "post",
+		Action:    "publish",
+	}
+
 	fmt.Println("Request 1:", auth.Authorize(request1))
 	fmt.Println("Request 2:", auth.Authorize(request2))
 	fmt.Println("Request 3:", auth.Authorize(request3))
 	fmt.Println("Request 4:", auth.Authorize(request4))
+	fmt.Println("Request 5:", auth.Authorize(request5))
 	// fmt.Println(auth.GetPrincipalsWithRole("tenant-a", "Editor"))
 }

@@ -129,7 +129,7 @@ func setupAuthorizer() *Authorizer {
 	role.AddPermission(&Permission{Resource: "resourceA", Action: "GET", Category: "category1"})
 	authorizer.AddRole(role)
 	namespace := "coding"
-	tenant := NewTenant("tenant1", "tenant1", namespace)
+	tenant := NewTenant("tenant1", namespace)
 	err := tenant.AddScopeToNamespace(namespace, NewScope("scope1"))
 	if err != nil {
 		panic(err)
